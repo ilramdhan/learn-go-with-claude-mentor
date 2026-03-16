@@ -96,6 +96,14 @@ Setelah install extension Go (by Google):
 
 ---
 
+
+### 🏋️ Latihan 1.1
+
+1. Install Go 1.22+ dan setup VS Code dengan extension `golang.go`. Buat program `hello.go` yang print nama kamu. Jalankan dengan `go run` dan `go build`. Verifikasi dengan `go version`.
+2. Buat project baru dengan `go mod init github.com/namaKamu/belajar-go`. Buat file `main.go` yang import package `fmt` dan `time`, print pesan "Selamat belajar Go!" beserta tanggal hari ini.
+3. Jelajahi dokumentasi Go di `pkg.go.dev`. Cari package `strings` dan baca fungsi `strings.Split`, `strings.Join`, `strings.Contains`. Buat program yang pakai ketiga fungsi tersebut.
+
+
 ## 📦 Modul 1.2 — Hello, Go!
 
 ### Program Pertama

@@ -1263,6 +1263,88 @@ func (gw *Gateway) Dashboard(c *gin.Context) {
 }
 ```
 
+### Rate Limiter dengan Redis (Per User & Per IP)
+
+```go
+// pkg/ratelimit/limiter.go
+package ratelimit
+
+import (
+    "context"
+    "fmt"
+    "time"
+
+    "github.com/gin-gonic/gin"
+    "github.com/redis/go-redis/v9"
+)
+
+type RateLimiter struct {
+    rdb     *redis.Client
+    limit   int           // max requests
+    window  time.Duration // time window
+}
+
+func NewRateLimiter(rdb *redis.Client, limit int, window time.Duration) *RateLimiter {
+    return &RateLimiter{rdb: rdb, limit: limit, window: window}
+}
+
+// Middleware menggunakan Sliding Window algorithm di Redis
+func (rl *RateLimiter) Middleware(keyFn func(*gin.Context) string) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        ctx := c.Request.Context()
+        key := "ratelimit:" + keyFn(c)
+        now := time.Now().UnixMilli()
+        windowStart := now - rl.window.Milliseconds()
+
+        // Sliding window dengan Redis sorted set
+        pipe := rl.rdb.TxPipeline()
+        // Hapus entries di luar window
+        pipe.ZRemRangeByScore(ctx, key, "0", fmt.Sprintf("%d", windowStart))
+        // Hitung entries dalam window
+        countCmd := pipe.ZCard(ctx, key)
+        // Tambahkan request baru
+        pipe.ZAdd(ctx, key, redis.Z{Score: float64(now), Member: now})
+        // Set TTL
+        pipe.Expire(ctx, key, rl.window)
+        pipe.Exec(ctx)
+
+        count := countCmd.Val()
+        remaining := int64(rl.limit) - count
+
+        c.Header("X-RateLimit-Limit", fmt.Sprintf("%d", rl.limit))
+        c.Header("X-RateLimit-Remaining", fmt.Sprintf("%d", max(0, remaining)))
+        c.Header("X-RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(rl.window).Unix()))
+
+        if count >= int64(rl.limit) {
+            c.AbortWithStatusJSON(429, gin.H{
+                "success": false,
+                "error": gin.H{
+                    "code":    "RATE_LIMIT_EXCEEDED",
+                    "message": fmt.Sprintf("Rate limit exceeded. Try again in %v", rl.window),
+                },
+            })
+            return
+        }
+        c.Next()
+    }
+}
+
+func max(a, b int64) int64 {
+    if a > b { return a }
+    return b
+}
+
+// Penggunaan di Gateway:
+// r.Use(rateLimiter.Middleware(func(c *gin.Context) string {
+//     // Rate limit per user jika authenticated, per IP jika tidak
+//     if userID := c.GetString("user_id"); userID != "" {
+//         return "user:" + userID
+//     }
+//     return "ip:" + c.ClientIP()
+// }))
+```
+
+
 ### 🏋️ Latihan 7.5
 
 1. Implementasikan `API Gateway` lengkap dengan reverse proxy ke Auth, Product, dan Order Service. Test setiap route dengan curl atau Postman.
@@ -3214,6 +3296,129 @@ Operations:
 3. Buat **runbook** untuk skenario: "Order Service tidak bisa connect ke Product Service". Isi: (a) gejala yang user rasakan, (b) command diagnosis, (c) langkah recovery, (d) cara verifikasi sudah pulih, (e) cara mencegah terulang.
 
 ---
+
+### Graceful Shutdown — Wajib di Production
+
+Graceful shutdown memastikan service tidak mati di tengah-tengah request, merusak data, atau meninggalkan koneksi tergantung.
+
+```go
+// cmd/api/main.go — Pattern graceful shutdown yang benar
+package main
+
+import (
+    "context"
+    "fmt"
+    "net"
+    "net/http"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
+
+    "go.uber.org/zap"
+    "google.golang.org/grpc"
+)
+
+func main() {
+    cfg := config.MustLoad("auth-service")
+    log := logger.MustNew(cfg.Log.Level, cfg.Log.Format, "auth-service", cfg.App.Version)
+    defer log.Sync()
+
+    // Setup HTTP server
+    router := setupRouter(cfg, log)
+    httpServer := &http.Server{
+        Addr:         fmt.Sprintf(":%d", cfg.App.Port),
+        Handler:      router,
+        ReadTimeout:  15 * time.Second,
+        WriteTimeout: 15 * time.Second,
+        IdleTimeout:  60 * time.Second,
+    }
+
+    // Setup gRPC server
+    grpcServer := grpc.NewServer(/* interceptors */)
+    grpcListener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.App.GRPCPort))
+    if err != nil {
+        log.Fatal("failed to listen gRPC", zap.Error(err))
+    }
+
+    // Start servers di goroutines
+    go func() {
+        log.Info("HTTP server starting", zap.String("addr", httpServer.Addr))
+        if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            log.Fatal("HTTP server failed", zap.Error(err))
+        }
+    }()
+
+    go func() {
+        log.Info("gRPC server starting", zap.Int("port", cfg.App.GRPCPort))
+        if err := grpcServer.Serve(grpcListener); err != nil {
+            log.Fatal("gRPC server failed", zap.Error(err))
+        }
+    }()
+
+    // ====================================================
+    // GRACEFUL SHUTDOWN
+    // ====================================================
+    // Tunggu signal dari OS: SIGTERM (Kubernetes) atau SIGINT (Ctrl+C)
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+    sig := <-quit // BLOCK sampai signal diterima
+    log.Info("shutdown signal received", zap.String("signal", sig.String()))
+
+    // Buat context dengan timeout untuk shutdown
+    // Kubernetes menunggu terminationGracePeriodSeconds (default 30s)
+    ctx, cancel := context.WithTimeout(context.Background(), cfg.App.ShutdownTimeout)
+    defer cancel()
+
+    // Step 1: Stop terima request baru dari HTTP
+    log.Info("shutting down HTTP server...")
+    if err := httpServer.Shutdown(ctx); err != nil {
+        log.Error("HTTP server shutdown error", zap.Error(err))
+    }
+
+    // Step 2: Stop terima request baru dari gRPC, tunggu yang sedang jalan selesai
+    log.Info("shutting down gRPC server...")
+    grpcServer.GracefulStop()
+
+    // Step 3: Tutup koneksi database
+    log.Info("closing database connections...")
+    if sqlDB, err := db.DB(); err == nil {
+        sqlDB.Close()
+    }
+
+    // Step 4: Flush logs (Zap punya buffer)
+    log.Info("shutdown complete")
+    log.Sync()
+}
+```
+
+### Kubernetes Termination Flow
+
+```
+1. kubectl delete pod / rolling update
+   │
+   ▼
+2. Pod state = Terminating
+   Kubernetes STOP kirim traffic baru ke pod ini (remove dari Service)
+   │
+   ▼
+3. SIGTERM dikirim ke container
+   (ini yang kita handle dengan signal.Notify)
+   │
+   ▼
+4. Aplikasi menyelesaikan request yang in-flight
+   (dengan timeout = terminationGracePeriodSeconds = 30s)
+   │
+   ▼
+5. SIGKILL dikirim jika timeout terlewati
+   (paksa kill, request yang belum selesai akan error)
+
+PENTING:
+  terminationGracePeriodSeconds di Kubernetes HARUS > ShutdownTimeout di aplikasi!
+  Kubernetes (30s) > Aplikasi (25s) → aplikasi selesai sebelum Kubernetes paksa kill
+```
+
 
 ## 🎯 Review & Checkpoint Fase 7
 

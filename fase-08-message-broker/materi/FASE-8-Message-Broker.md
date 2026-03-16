@@ -986,6 +986,99 @@ func handleOrderConfirmed(ctx context.Context, payload []byte) error {
 
 ---
 
+### Consumer Group Rebalance
+
+Rebalance terjadi saat: consumer baru join, consumer crash/leave, atau topic partisi berubah.
+
+```go
+// pkg/kafka/consumer_with_rebalance.go
+// kafka-go handles rebalance otomatis, tapi penting untuk dipahami
+
+// Apa yang terjadi saat rebalance:
+// 1. STOP - semua consumer PAUSE (tidak bisa consume!)
+// 2. Coordinator memilih kembali partition assignment
+//    Consumer 1 (baru): Partition 0, 1
+//    Consumer 2:        Partition 2
+// 3. RESUME - consumer melanjutkan dari offset yang di-commit terakhir
+//
+// MASALAH: jika ada uncommitted offset saat rebalance
+//   Consumer 1 sedang proses message di offset 50, belum commit
+//   Rebalance terjadi → partition 0 pindah ke Consumer 2
+//   Consumer 2 start dari offset 49 (terakhir yang committed)
+//   → MESSAGE DIPROSES 2X (duplicate)!
+//
+// SOLUSI: commit offset sesering mungkin dan buat consumer IDEMPOTENT
+
+// Memonitor rebalance via stats
+reader := kafka.NewReader(kafka.ReaderConfig{
+    Brokers: brokers,
+    Topic:   "orders",
+    GroupID: "notification-service-v1",
+    // CommitInterval: 0 → manual commit setelah setiap message
+    CommitInterval: time.Second,
+})
+
+// Stats yang berguna untuk monitoring
+go func() {
+    ticker := time.NewTicker(10 * time.Second)
+    for range ticker.C {
+        stats := reader.Stats()
+        fmt.Printf("Consumer Stats: lag=%d fetches=%d messages=%d bytes=%d\n",
+            stats.Lag,
+            stats.Fetches,
+            stats.Messages,
+            stats.Bytes,
+        )
+        // Expose sebagai Prometheus metrics!
+        kafkaConsumerLag.WithLabelValues(stats.Topic, stats.Partition, stats.GroupID).
+            Set(float64(stats.Lag))
+    }
+}()
+```
+
+### Kafka Consumer Lag Monitoring
+
+Consumer lag = selisih antara offset TERBARU di partition vs offset yang sudah di-COMMIT consumer.
+Lag tinggi = consumer ketinggalan = notifikasi terlambat!
+
+```bash
+# Cek consumer lag via CLI
+kafka-consumer-groups \
+  --bootstrap-server localhost:29092 \
+  --describe \
+  --group notification-service-v1
+
+# Output:
+# GROUP                    TOPIC   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+# notification-service-v1  orders  0          1250            1250            0
+# notification-service-v1  orders  1          980             985             5   ← lag!
+# notification-service-v1  orders  2          1100            1100            0
+```
+
+```yaml
+# Prometheus alert untuk consumer lag
+groups:
+  - name: kafka.alerts
+    rules:
+      - alert: KafkaConsumerHighLag
+        expr: kafka_consumer_lag > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka consumer {{ $labels.group_id }} lag is high"
+          description: "Consumer lag is {{ $value }} for topic {{ $labels.topic }}, partition {{ $labels.partition }}"
+
+      - alert: KafkaConsumerVeryHighLag
+        expr: kafka_consumer_lag > 10000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka consumer {{ $labels.group_id }} lag is critical"
+```
+
+
 ## 📦 Modul 8.6 — RabbitMQ Fundamentals
 
 ### Arsitektur RabbitMQ
@@ -1057,6 +1150,124 @@ ARGUMENTS:
   x-max-length            → batas jumlah message di queue
   x-queue-mode: lazy      → simpan ke disk, hemat memory
 ```
+
+### Message Properties & Persistence
+
+```go
+// Message properties yang penting untuk production
+
+ch.PublishWithContext(ctx,
+    "order-events",  // exchange
+    "order.confirmed", // routing key
+    false,           // mandatory
+    false,           // immediate
+    amqp.Publishing{
+        // Persistence: message survive broker restart
+        DeliveryMode: amqp.Persistent,  // 1=transient, 2=persistent
+
+        // Content type untuk consumer tahu cara parse
+        ContentType: "application/json",
+
+        // Message ID untuk idempotency
+        MessageId: uuid.New().String(),
+
+        // Correlation ID untuk trace request end-to-end
+        CorrelationId: correlationID,
+
+        // Reply-to untuk RPC pattern
+        ReplyTo: replyQueue,
+
+        // TTL: message expired setelah 1 jam jika tidak diproses
+        Expiration: "3600000", // milliseconds
+
+        // Priority: 0-9 (butuh x-max-priority queue argument)
+        Priority: 5,
+
+        // Timestamp
+        Timestamp: time.Now(),
+
+        // App ID untuk identify publisher
+        AppId: "order-service",
+
+        // Custom headers
+        Headers: amqp.Table{
+            "event-type":   "order.confirmed",
+            "event-version": "1",
+            "source-service": "order-service",
+        },
+
+        Body: body,
+    },
+)
+```
+
+### Queue Arguments Penting
+
+```go
+// Queue dengan semua arguments production-ready
+queue, err := ch.QueueDeclare(
+    "order-processing",
+    true,   // durable: survive broker restart
+    false,  // auto-delete: jangan hapus saat consumer disconnect
+    false,  // exclusive: bisa diakses banyak connection
+    false,  // no-wait
+    amqp.Table{
+        // Dead Letter Exchange: kemana message yang gagal
+        "x-dead-letter-exchange":    "order-dlx",
+        "x-dead-letter-routing-key": "order-processing.dlq",
+
+        // Max messages di queue (prevent memory exhaustion)
+        "x-max-length": int32(10000),
+
+        // Max total bytes
+        "x-max-length-bytes": int64(100 * 1024 * 1024), // 100MB
+
+        // Message TTL: hapus message setelah 24 jam jika tidak diproses
+        "x-message-ttl": int32(86400000), // 24 jam dalam ms
+
+        // Queue TTL: hapus queue jika tidak ada consumer
+        // "x-expires": int32(3600000),
+
+        // Lazy mode: simpan messages di disk (hemat memory, cocok untuk banyak messages)
+        "x-queue-mode": "lazy",
+
+        // Single Active Consumer: pastikan hanya 1 consumer aktif
+        // (untuk ordered processing)
+        // "x-single-active-consumer": true,
+    },
+)
+```
+
+### Management API — Monitoring via HTTP
+
+```bash
+# RabbitMQ punya REST API untuk monitoring
+# Gunakan untuk health checks dan monitoring
+
+# List semua queues dengan stats
+curl -u admin:pass http://localhost:15672/api/queues
+
+# Stats queue tertentu (termasuk consumer count, message count, dll)
+curl -u admin:pass http://localhost:15672/api/queues/%2F/order-processing
+
+# Publish message via management API (untuk testing)
+curl -u admin:pass \
+  -X POST http://localhost:15672/api/exchanges/%2F/order-events/publish \
+  -H "Content-Type: application/json" \
+  -d '{
+    "properties": {"delivery_mode": 2, "content_type": "application/json"},
+    "routing_key": "order.confirmed",
+    "payload": "{\"order_id\": 123}",
+    "payload_encoding": "string"
+  }'
+
+# Overview cluster
+curl -u admin:pass http://localhost:15672/api/overview
+
+# Connection list
+curl -u admin:pass http://localhost:15672/api/connections
+```
+
 
 ### 🏋️ Latihan 8.6
 

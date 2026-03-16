@@ -2041,6 +2041,14 @@ func main() {
 
 ---
 
+
+### 🏋️ Latihan 2.13
+
+1. Implementasikan **Functional Options Pattern** untuk `Server` struct: buat `WithTimeout(d time.Duration)`, `WithMaxRetries(n int)`, `WithLogger(l *Logger)` options. Test bahwa default values berlaku saat options tidak di-provide.
+2. Buat **Middleware Chain** untuk HTTP handler: implementasikan `Chain(handlers ...Middleware) Middleware` yang menerapkan middleware secara berurutan. Test chain: logging → auth → rate-limit → handler, verifikasi urutan eksekusi.
+3. Buat **Pipeline Pattern**: function `Pipeline(stages ...func([]int) []int) func([]int) []int` yang compose multiple transformation functions. Gunakan untuk: filter angka genap → kalikan 2 → ambil 10 terbesar. Test dengan slice 100 angka random.
+
+
 ## 🎯 Review & Checkpoint Fase 2
 
 ### Konseptual

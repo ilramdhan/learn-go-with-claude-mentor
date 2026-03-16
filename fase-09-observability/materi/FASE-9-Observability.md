@@ -994,6 +994,88 @@ var (
 )
 ```
 
+### Go Runtime Metrics — Built-in dari prometheus/client_golang
+
+```go
+// pkg/metrics/runtime.go
+// prometheus/client_golang sudah otomatis expose runtime metrics
+// Cukup import:
+import _ "github.com/prometheus/client_golang/prometheus/collectors"
+
+// Atau register manual:
+func RegisterRuntimeMetrics() {
+    prometheus.MustRegister(
+        collectors.NewGoCollector(
+            collectors.WithGoCollectorRuntimeMetrics(
+                collectors.GoRuntimeMetricsRule{Matcher: regexp.MustCompile(`/.*`)},
+            ),
+        ),
+        collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+    )
+}
+
+// Metrics yang otomatis tersedia setelah register:
+// go_goroutines              → jumlah goroutine aktif
+// go_gc_duration_seconds     → histogram durasi GC pause
+// go_memstats_alloc_bytes    → heap bytes yang sedang dipakai
+// go_memstats_sys_bytes      → total memori dari OS
+// go_memstats_gc_cpu_fraction → % CPU untuk GC
+// process_resident_memory_bytes → RSS memory
+// process_cpu_seconds_total  → total CPU seconds
+
+// PromQL queries berguna:
+// Goroutine count per service:
+//   go_goroutines{service="order-service"}
+//
+// GC pause p99 (ms):
+//   histogram_quantile(0.99, rate(go_gc_duration_seconds_bucket[5m])) * 1000
+//
+// Heap usage (MB):
+//   go_memstats_alloc_bytes{service="auth-service"} / 1024 / 1024
+//
+// Memory growth rate (deteksi memory leak):
+//   rate(go_memstats_alloc_bytes_total[5m])
+```
+
+### Alerting untuk Runtime Issues
+
+```yaml
+# monitoring/prometheus/alerts-runtime.yml
+groups:
+  - name: go_runtime
+    rules:
+      # Goroutine leak
+      - alert: GoRoutineLeak
+        expr: go_goroutines > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Possible goroutine leak in {{ $labels.service }}"
+          description: "Goroutine count is {{ $value }}, expected < 1000"
+
+      # GC pressure
+      - alert: HighGCPressure
+        expr: go_memstats_gc_cpu_fraction > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High GC pressure in {{ $labels.service }}"
+          description: "GC using {{ $value | humanizePercentage }} of CPU"
+
+      # Memory usage high
+      - alert: HighHeapUsage
+        expr: |
+          go_memstats_alloc_bytes / go_memstats_sys_bytes > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High heap usage in {{ $labels.service }}"
+```
+
+
 ### 🏋️ Latihan 9.5
 
 1. Tambahkan **business metrics** ke Order Service: `orders_created_total` (per status), `revenue_total_idr`, `active_orders` (gauge). Verifikasi metrics muncul di Prometheus setelah beberapa order dibuat.
@@ -1638,6 +1720,101 @@ sum(increase(ecommerce_slo_total_requests_total[30d]))
 )
 ```
 
+### Alertmanager — Routing & Notification
+
+```yaml
+# monitoring/alertmanager/alertmanager.yml
+global:
+  resolve_timeout: 5m
+  # SMTP untuk email
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alerts@mycompany.com'
+  smtp_auth_username: 'alerts@mycompany.com'
+  smtp_auth_password: '{{ .SmtpPassword }}'
+
+# Template untuk pesan notifikasi
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Routing tree: tentukan siapa yang dapat alert apa
+route:
+  # Default receiver
+  receiver: 'ops-team-slack'
+  group_by: ['alertname', 'service']
+  group_wait: 30s      # tunggu 30s sebelum kirim (untuk grouping)
+  group_interval: 5m   # kirim ulang setelah 5 menit jika masih firing
+  repeat_interval: 4h  # kirim ulang setiap 4 jam jika masih firing
+
+  routes:
+    # Critical alerts → PagerDuty (langsung bangunkan on-call engineer!)
+    - match:
+        severity: critical
+      receiver: pagerduty-critical
+      continue: true  # kirim ke receiver berikutnya juga
+
+    # Critical alerts → Slack #incidents
+    - match:
+        severity: critical
+      receiver: slack-incidents
+
+    # Warning alerts → Slack #alerts (tidak bangunkan orang)
+    - match:
+        severity: warning
+      receiver: slack-alerts
+      group_wait: 1m  # tunggu lebih lama untuk group
+
+    # Business alerts → berbeda channel
+    - match_re:
+        alertname: 'NoOrders.*|HighCart.*'
+      receiver: business-team-slack
+
+receivers:
+  - name: 'ops-team-slack'
+    slack_configs:
+      - api_url: '{{ .SlackWebhookURL }}'
+        channel: '#ops-alerts'
+        title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+        text: |
+          *Alert:* {{ .CommonLabels.alertname }}
+          *Service:* {{ .CommonLabels.service }}
+          *Severity:* {{ .CommonLabels.severity }}
+          *Summary:* {{ .CommonAnnotations.summary }}
+          *Description:* {{ .CommonAnnotations.description }}
+          {{ range .Alerts }}
+          *Details:*
+          {{ range .Labels.SortedPairs }}  • *{{ .Name }}:* `{{ .Value }}`
+          {{ end }}
+          {{ end }}
+
+  - name: 'slack-incidents'
+    slack_configs:
+      - api_url: '{{ .SlackWebhookURL }}'
+        channel: '#incidents'
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - routing_key: '{{ .PagerDutyIntegrationKey }}'
+        description: '{{ .CommonAnnotations.summary }}'
+        severity: '{{ .CommonLabels.severity }}'
+
+  - name: 'business-team-slack'
+    slack_configs:
+      - api_url: '{{ .SlackWebhookURL }}'
+        channel: '#business-alerts'
+
+# Silencing: suppress alerts yang sudah diketahui
+inhibit_rules:
+  # Jika service down (critical), suppress semua alert yang lebih kecil dari service tersebut
+  - source_match:
+      severity: 'critical'
+      alertname: 'ServiceDown'
+    target_match:
+      severity: 'warning'
+    equal: ['service']
+```
+
+
 ### 🏋️ Latihan 9.10
 
 1. Buat **Prometheus alerting rules** untuk: error rate > 5% selama 2 menit, p99 latency > 1 detik selama 5 menit, service down selama 1 menit. Test alert dengan stop salah satu service dan verify Prometheus menunjukkan "FIRING".
@@ -2068,6 +2245,68 @@ Cross-linking:
 3. Buat **Runbook yang terintegrasi**: dokumen yang berisi: gejala (dengan screenshot Grafana) → query untuk diagnosa → langkah perbaikan → verifikasi sukses. Gunakan untuk skenario "high error rate di checkout".
 
 ---
+
+### Loki & LogQL — Query Language untuk Logs
+
+```
+LogQL adalah query language untuk Loki, mirip PromQL tapi untuk logs.
+
+BASIC SYNTAX:
+  {label="value"}                 → select streams dengan label
+  {service="auth-service"}        → semua logs dari auth-service
+  {service=~".*-service"}         → regex match
+  {service="auth", level="error"} → multiple labels (AND)
+
+LOG FILTER:
+  {service="auth"} |= "login"          → mengandung "login"
+  {service="auth"} != "debug"          → tidak mengandung "debug"
+  {service="auth"} |~ "user.*failed"   → regex match
+  {service="auth"} !~ "health.*check"  → tidak regex match
+
+PARSER (untuk structured/JSON logs):
+  {service="auth"} | json                        → parse JSON log
+  {service="auth"} | json | level="error"        → filter setelah parse
+  {service="auth"} | json | duration > 1s        → filter by duration
+  {service="auth"} | logfmt                      → parse logfmt format
+
+METRIC QUERIES:
+  rate({service="auth"} |= "error" [5m])         → error rate per detik
+  count_over_time({service="auth"}[1h])           → total logs dalam 1 jam
+  sum(rate({service=~".*-service"}[5m])) by (service)  → per service
+
+USEFUL QUERIES:
+  # Semua error logs
+  {service="order-service"} | json | level="error"
+
+  # Logs dari request tertentu (correlate dengan trace)
+  {service=~".*"} | json | request_id="abc-123"
+
+  # Slow requests (latency > 1 detik)
+  {service="api-gateway"} | json | latency_ms > 1000
+
+  # Login failures dalam 5 menit terakhir
+  {service="auth-service"} |= "authentication failed" | json
+  | line_format "{{.timestamp}} user={{.user_id}} ip={{.ip}}"
+```
+
+```yaml
+# monitoring/grafana/provisioning/datasources/loki.yaml
+apiVersion: 1
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    jsonData:
+      derivedFields:
+        # Auto-link dari log ke Jaeger trace
+        - matcherRegex: "trace_id=(\\w+)"
+          name: TraceID
+          url: "http://jaeger:16686/trace/${__value.raw}"
+          datasourceUid: jaeger-datasource
+```
+
 
 ## 🎯 Review & Checkpoint Fase 9
 

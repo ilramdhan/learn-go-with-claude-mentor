@@ -217,6 +217,14 @@ func main() {
 
 ---
 
+
+### 🏋️ Latihan 3.1
+
+1. Buat Gin server minimal yang: (a) jalankan di port 8080, (b) handle `GET /` yang return JSON `{"message":"Hello, Go!"}`, (c) handle route yang tidak ada dengan 404 JSON response. Verifikasi dengan curl.
+2. Tambahkan **logging middleware** custom: log setiap request dengan method, path, status code, dan latency. Format: `2025/01/15 10:30:00 | 200 | 1.23ms | GET /api/users`.
+3. Buat router dengan **route grouping**: group `/api/v1/public` (tanpa auth) dan `/api/v1/private` (dengan dummy auth check). Tambahkan minimal 2 endpoint di setiap group.
+
+
 ## 📦 Modul 3.2 — Request Handling
 
 ### Path Parameters, Query, Body
@@ -374,6 +382,14 @@ func main() {
 ```
 
 ---
+
+
+### 🏋️ Latihan 3.2
+
+1. Buat endpoint `POST /users` yang menerima JSON body dengan field: `name`, `email`, `age`. Validasi: name tidak kosong, email format valid, age antara 18-100. Return 400 jika invalid dengan pesan error per field.
+2. Buat endpoint `GET /users/:id/profile` yang menerima path param `id` (uint) dan query params `fields=name,email` untuk select fields mana yang di-return. Handle: id bukan angka → 400, id tidak ada → 404.
+3. Buat endpoint yang menerima semua HTTP methods (GET, POST, PUT, DELETE) untuk resource yang sama dan return method yang dipakai dalam response.
+
 
 ## 📦 Modul 3.3 — Middleware
 
@@ -587,6 +603,14 @@ func adminGetUsers(c *gin.Context)        { c.JSON(200, gin.H{"users": []string{
 ```
 
 ---
+
+
+### 🏋️ Latihan 3.3
+
+1. Buat **CORS middleware** yang: allow origin `http://localhost:3000` dan `https://myapp.com`, allow methods GET/POST/PUT/DELETE, allow headers Authorization dan Content-Type. Test dengan browser atau curl dengan `-H "Origin: http://localhost:3000"`.
+2. Buat **rate limiter middleware** menggunakan Redis (atau in-memory map dengan sync.Mutex): limit 10 request/menit per IP. Return 429 dengan header `X-RateLimit-Remaining` dan `X-RateLimit-Reset`.
+3. Buat **recovery middleware** yang: catch panic, log stack trace, return 500 JSON response. Test dengan endpoint yang sengaja panic.
+
 
 ## 📦 Modul 3.4 — Database + GORM
 
@@ -838,6 +862,14 @@ err := db.Transaction(func(tx *gorm.DB) error {
 
 ---
 
+
+### 🏋️ Latihan 3.4
+
+1. Setup GORM dengan PostgreSQL. Buat model `User` dengan: soft delete, auto timestamps (created_at, updated_at). Buat migrasi (AutoMigrate) dan seed 5 users. Verifikasi data muncul di database.
+2. Buat GORM callback yang otomatis: (a) set `created_at` dan `updated_at` saat create, (b) update `updated_at` saat update. Buat test yang memverifikasi callback berjalan.
+3. Implementasikan **database connection pool**: `MaxOpenConns=25`, `MaxIdleConns=5`, `ConnMaxLifetime=5m`. Buat endpoint `GET /health/db` yang menampilkan stats pool (open, idle, in-use connections).
+
+
 ## 📦 Modul 3.5 — Repository Pattern
 
 Repository memisahkan logika database dari business logic.
@@ -953,6 +985,14 @@ func (r *userRepository) FindAll(ctx context.Context, opts FindOptions) ([]model
 ```
 
 ---
+
+
+### 🏋️ Latihan 3.5
+
+1. Implementasikan `UserRepository` interface dengan method: `Create`, `FindByID`, `FindByEmail`, `Update`, `Delete`. Implementasikan dengan GORM. Tulis unit test menggunakan mock repository.
+2. Buat `ProductRepository` dengan method `Search(ctx, query string, page, perPage int) ([]*Product, int64, error)` yang support full-text search pada field name dan description. Gunakan GORM LIKE query.
+3. Implementasikan **repository caching layer**: buat `CachedUserRepository` yang wrap `UserRepository`, cache `FindByID` di Redis selama 5 menit. Cache invalidate saat `Update` atau `Delete` dipanggil.
+
 
 ## 📦 Modul 3.6 — JWT Authentication
 
@@ -1107,6 +1147,14 @@ func GetUserRole(c *gin.Context) string {
 
 ---
 
+
+### 🏋️ Latihan 3.6
+
+1. Implementasikan JWT authentication lengkap: (a) `POST /auth/register` buat user baru, (b) `POST /auth/login` return access_token (15 menit) dan refresh_token (7 hari), (c) `GET /auth/me` return user info (protected).
+2. Implementasikan **refresh token rotation**: `POST /auth/refresh` menerima refresh_token, return access_token baru dan refresh_token baru. Refresh_token lama langsung invalid setelah dipakai (rotation).
+3. Implementasikan **token blacklisting**: saat logout (`POST /auth/logout`), simpan token ke Redis blacklist dengan TTL = sisa waktu token. Middleware cek blacklist sebelum accept request.
+
+
 ## 📦 Modul 3.7 — Consistent Error Response
 
 ```go
@@ -1236,6 +1284,14 @@ func InternalError(c *gin.Context) {
 
 ---
 
+
+### 🏋️ Latihan 3.7
+
+1. Buat **standard error response** untuk semua endpoint: `{"success":false,"error":{"code":"PRODUCT_NOT_FOUND","message":"Product with id 123 not found"}}`. Implementasikan dengan custom error types dan error handler middleware.
+2. Buat **mapping tabel**: setiap domain error (`ErrProductNotFound`, `ErrUnauthorized`, dll) map ke HTTP status code yang tepat dan error code yang konsisten.
+3. Buat **error documentation**: file `docs/error-codes.md` yang mendaftar semua error codes, HTTP status, dan contoh response-nya. Gunakan ini sebagai kontrak dengan frontend team.
+
+
 ## 📦 Modul 3.8 — Validation
 
 ```bash
@@ -1348,6 +1404,14 @@ func (h *PostHandler) Create(c *gin.Context) {
 ```
 
 ---
+
+
+### 🏋️ Latihan 3.8
+
+1. Buat **custom validator** menggunakan `go-playground/validator`: (a) `indophone` untuk nomor HP Indonesia (08xx atau +62xx), (b) `strongpassword` yang cek min 8 chars, ada uppercase, lowercase, dan angka. Register di Gin validator.
+2. Implementasikan **struct-level validation**: validasi bahwa `end_date` selalu setelah `start_date` dalam struct `DateRange`. Test dengan request yang valid dan berbagai kasus invalid.
+3. Buat **validation error formatter**: fungsi yang mengubah `validator.ValidationErrors` menjadi map `field → error_message` yang user-friendly dalam Bahasa Indonesia.
+
 
 ## 📦 Modul 3.9 — File Upload
 
@@ -1912,6 +1976,14 @@ func Load() (*Config, error) {
 
 ---
 
+
+### 🏋️ Latihan 3.11
+
+1. Buat file `config/config.yaml` dengan Viper untuk: app (name, env, port), database (host, port, user, password, name), jwt (secret, expiry). Tambahkan `config.production.yaml` yang override beberapa nilai.
+2. Buat `ConfigWatcher` yang reload config saat file `config.yaml` berubah (gunakan `viper.WatchConfig()`). Test dengan mengubah log level secara live tanpa restart service.
+3. Implementasikan **config validation**: struct tag `validate` untuk memastikan required fields ada dan format benar saat startup. Service tidak boleh start dengan config yang invalid.
+
+
 ## 📦 Modul 3.12 — API Documentation dengan Swagger
 
 Swagger (OpenAPI 3.0) menghasilkan dokumentasi interaktif otomatis dari komentar di kode Go.
@@ -2206,47 +2278,26 @@ docs:
 2. Buat custom Swagger config yang menambahkan contoh response di UI. Gunakan `// example:` annotation di setiap field struct response.
 3. Tambahkan endpoint `GET /api/v1/spec` yang mengembalikan OpenAPI spec dalam format JSON, sehingga client bisa auto-generate SDK.
 
-### 🏋️ Latihan 3.1 — 3.8 (Recap)
-
-**Latihan 3.1 — Gin Basics:**
-1. Buat Gin server dengan 5 route berbeda (GET, POST, PUT, PATCH, DELETE) untuk resource `Product`. Tambahkan 404 handler custom.
-2. Buat route group `/api/v1/admin` dengan middleware yang mengembalikan 403 jika header `X-Admin-Key` tidak ada atau nilainya salah.
-
-**Latihan 3.2 — Request Handling:**
-1. Buat endpoint `GET /products/search` yang menerima query params: `q` (wajib), `category` (opsional), `min_price`, `max_price`, `sort` (name/price/newest). Validasi bahwa `min_price <= max_price`.
-2. Buat endpoint `POST /bulk/products` yang menerima JSON array of products. Validasi setiap item dan kembalikan hasil per item (sukses/gagal beserta alasannya).
-
-**Latihan 3.3 — Middleware:**
-1. Buat middleware `RequestLogger` yang mencatat method, path, status code, durasi, dan IP client ke stdout dalam format JSON.
-2. Buat middleware `APIKeyAuth` yang mengecek header `X-API-Key` terhadap list key yang valid (simpan di in-memory map). Return 401 jika tidak ada, 403 jika invalid.
-
-**Latihan 3.4 — GORM:**
-1. Buat model `Category` dengan relasi one-to-many ke `Product`. Implementasikan soft delete. Test bahwa `db.Find` tidak mengembalikan record yang sudah di-soft-delete.
-2. Buat fungsi `GetProductsWithLowStock(db *gorm.DB, threshold int) ([]Product, error)` yang mengambil produk dengan stok di bawah threshold, diurutkan dari stok paling sedikit.
-
-**Latihan 3.5 — Repository Pattern:**
-1. Buat `ProductRepository` interface dengan semua CRUD method. Implementasikan `PostgresProductRepository`. Buat juga `InMemoryProductRepository` untuk testing yang menyimpan data di `map[uint]*Product`.
-2. Tulis test untuk handler yang menggunakan `InMemoryProductRepository` (bukan database sungguhan).
-
-**Latihan 3.6 — JWT:**
-1. Implementasikan **token blacklist** sederhana: saat logout, simpan JTI (JWT ID) ke in-memory set. Tambahkan middleware yang menolak token yang ada di blacklist.
-2. Buat endpoint `GET /auth/verify` yang menerima token di header, memvalidasinya, dan mengembalikan claims (user_id, email, role, exp).
-
-**Latihan 3.7 — Error Response:**
-1. Buat error handler global menggunakan Gin middleware yang menangkap semua panic dan mengembalikan `InternalServerError` dalam format standar.
-2. Buat helper `ValidationErrors(err error) map[string]string` yang mengkonversi semua tipe validation error (binding.ValidationErrors, domain errors, custom errors) ke format `{"field": "error message"}`.
-
-**Latihan 3.8 — Validation:**
-1. Buat custom validator `@unique_email` yang mengecek ke database apakah email sudah terdaftar. Gunakan di `RegisterRequest`.
-2. Buat struct `DateRange` dengan dua field `StartDate` dan `EndDate` (format `2006-01-02`). Buat custom validator yang memastikan StartDate < EndDate.
-
-
----
-
 ## 📦 Modul 3.13 — Testing REST API
 
+### Mengapa Testing Penting untuk REST API?
+
+```
+Tanpa test:
+  - "Coba dulu di Postman" → manual, tidak reproducible
+  - Refactor handler → takut break sesuatu
+  - Bug terdeteksi di production → mahal
+
+Dengan test:
+  - Setiap endpoint terdokumentasi dengan behavior yang expected
+  - Refactor dengan percaya diri
+  - Bug terdeteksi saat development
+```
+
+### httptest — Testing Handler tanpa Server Nyata
+
 ```go
-// handler/user_handler_test.go
+// internal/delivery/http/handler/product_handler_test.go
 package handler_test
 
 import (
@@ -2259,81 +2310,277 @@ import (
     "github.com/gin-gonic/gin"
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/mock"
+    "github.com/stretchr/testify/require"
+
+    "github.com/kamu/blog-api/internal/delivery/http/handler"
+    "github.com/kamu/blog-api/internal/mocks"
+    productuc "github.com/kamu/blog-api/internal/usecase/product"
 )
 
-// Mock repository
-type MockUserRepository struct {
-    mock.Mock
+func init() {
+    gin.SetMode(gin.TestMode) // matikan verbose output
 }
 
-func (m *MockUserRepository) FindByID(ctx context.Context, id uint) (*model.User, error) {
-    args := m.Called(ctx, id)
-    if args.Get(0) == nil {
-        return nil, args.Error(1)
-    }
-    return args.Get(0).(*model.User), args.Error(1)
-}
+// setupProductRouter helper yang buat Gin router dengan mock dependencies
+func setupProductRouter(t *testing.T) (*gin.Engine, *mocks.CreateProductUseCase, *mocks.GetProductUseCase) {
+    t.Helper()
+    mockCreate := new(mocks.CreateProductUseCase)
+    mockGet := new(mocks.GetProductUseCase)
 
-func (m *MockUserRepository) Create(ctx context.Context, user *model.User) error {
-    args := m.Called(ctx, user)
-    return args.Error(0)
-}
-
-// Test helper
-func setupRouter() (*gin.Engine, *MockUserRepository) {
-    gin.SetMode(gin.TestMode)
+    h := handler.NewProductHandler(mockCreate, mockGet, nil, nil)
     r := gin.New()
-    mockRepo := new(MockUserRepository)
-    // inject mock ke handler
-    return r, mockRepo
+    r.Use(gin.Recovery())
+
+    api := r.Group("/api/v1")
+    api.POST("/products", h.Create)
+    api.GET("/products/:id", h.GetByID)
+    api.GET("/products", h.List)
+
+    return r, mockCreate, mockGet
 }
 
-func TestGetUserByID_Success(t *testing.T) {
-    r, mockRepo := setupRouter()
+// doRequest helper untuk membuat HTTP request
+func doRequest(t *testing.T, router *gin.Engine, method, path string, body interface{}) *httptest.ResponseRecorder {
+    t.Helper()
 
-    expectedUser := &model.User{ID: 1, Name: "Alice", Email: "alice@example.com"}
-    mockRepo.On("FindByID", mock.Anything, uint(1)).Return(expectedUser, nil)
-
-    handler := NewUserHandler(mockRepo)
-    r.GET("/users/:id", handler.GetByID)
-
-    // Create test request
-    req, _ := http.NewRequest("GET", "/users/1", nil)
-    w := httptest.NewRecorder()
-
-    r.ServeHTTP(w, req)
-
-    assert.Equal(t, http.StatusOK, w.Code)
-
-    var response map[string]interface{}
-    json.Unmarshal(w.Body.Bytes(), &response)
-    assert.True(t, response["success"].(bool))
-
-    mockRepo.AssertExpectations(t)
-}
-
-func TestCreateUser_ValidationError(t *testing.T) {
-    r, _ := setupRouter()
-
-    body := map[string]interface{}{
-        "name":     "A", // terlalu pendek
-        "email":    "invalid-email",
-        "password": "123", // terlalu pendek
+    var bodyBytes []byte
+    if body != nil {
+        var err error
+        bodyBytes, err = json.Marshal(body)
+        require.NoError(t, err)
     }
-    bodyBytes, _ := json.Marshal(body)
 
-    req, _ := http.NewRequest("POST", "/users",
-        bytes.NewBuffer(bodyBytes))
-    req.Header.Set("Content-Type", "application/json")
+    req := httptest.NewRequest(method, path, bytes.NewBuffer(bodyBytes))
+    if body != nil {
+        req.Header.Set("Content-Type", "application/json")
+    }
+
     w := httptest.NewRecorder()
+    router.ServeHTTP(w, req)
+    return w
+}
 
-    r.ServeHTTP(w, req)
+func TestProductHandler_Create(t *testing.T) {
+    tests := []struct {
+        name           string
+        body           interface{}
+        setupMock      func(*mocks.CreateProductUseCase)
+        wantStatusCode int
+        wantSuccess    bool
+        wantErrorCode  string
+    }{
+        {
+            name: "success - valid product",
+            body: map[string]interface{}{
+                "name":  "Laptop Gaming",
+                "price": 15000000,
+                "stock": 10,
+                "sku":   "ELEC-00001",
+            },
+            setupMock: func(m *mocks.CreateProductUseCase) {
+                m.On("Execute", mock.Anything, mock.MatchedBy(func(input productuc.CreateProductInput) bool {
+                    return input.Name == "Laptop Gaming" && input.Price == 15000000
+                })).Return(&productuc.CreateProductOutput{
+                    Product: &entity.Product{ID: 1, Name: "Laptop Gaming", Price: 15000000},
+                }, nil)
+            },
+            wantStatusCode: http.StatusCreated,
+            wantSuccess:    true,
+        },
+        {
+            name: "error - empty name",
+            body: map[string]interface{}{
+                "name":  "",
+                "price": 15000000,
+                "sku":   "ELEC-00001",
+            },
+            setupMock:      func(m *mocks.CreateProductUseCase) {},
+            wantStatusCode: http.StatusBadRequest,
+            wantSuccess:    false,
+            wantErrorCode:  "VALIDATION_ERROR",
+        },
+        {
+            name: "error - negative price",
+            body: map[string]interface{}{
+                "name":  "Laptop",
+                "price": -1000,
+                "sku":   "ELEC-00001",
+            },
+            setupMock:      func(m *mocks.CreateProductUseCase) {},
+            wantStatusCode: http.StatusBadRequest,
+            wantSuccess:    false,
+        },
+        {
+            name: "error - duplicate SKU",
+            body: map[string]interface{}{
+                "name":  "Laptop",
+                "price": 15000000,
+                "sku":   "ELEC-00001",
+            },
+            setupMock: func(m *mocks.CreateProductUseCase) {
+                m.On("Execute", mock.Anything, mock.Anything).
+                    Return(nil, apperror.ErrSKUExists)
+            },
+            wantStatusCode: http.StatusConflict,
+            wantSuccess:    false,
+            wantErrorCode:  "SKU_EXISTS",
+        },
+    }
 
-    assert.Equal(t, http.StatusBadRequest, w.Code)
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            router, mockCreate, _ := setupProductRouter(t)
+            tt.setupMock(mockCreate)
+
+            w := doRequest(t, router, http.MethodPost, "/api/v1/products", tt.body)
+
+            assert.Equal(t, tt.wantStatusCode, w.Code)
+
+            var resp map[string]interface{}
+            require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+            assert.Equal(t, tt.wantSuccess, resp["success"])
+
+            if tt.wantErrorCode != "" {
+                errObj, ok := resp["error"].(map[string]interface{})
+                require.True(t, ok, "response should have error object")
+                assert.Equal(t, tt.wantErrorCode, errObj["code"])
+            }
+
+            mockCreate.AssertExpectations(t)
+        })
+    }
+}
+
+func TestProductHandler_GetByID(t *testing.T) {
+    t.Run("success", func(t *testing.T) {
+        router, _, mockGet := setupProductRouter(t)
+        mockGet.On("Execute", mock.Anything, productuc.GetProductInput{ID: 1}).
+            Return(&productuc.GetProductOutput{
+                Product: &entity.Product{ID: 1, Name: "Laptop Gaming"},
+            }, nil)
+
+        w := doRequest(t, router, http.MethodGet, "/api/v1/products/1", nil)
+
+        assert.Equal(t, http.StatusOK, w.Code)
+        var resp map[string]interface{}
+        json.Unmarshal(w.Body.Bytes(), &resp)
+        assert.True(t, resp["success"].(bool))
+        data := resp["data"].(map[string]interface{})
+        assert.Equal(t, float64(1), data["id"])
+    })
+
+    t.Run("not found", func(t *testing.T) {
+        router, _, mockGet := setupProductRouter(t)
+        mockGet.On("Execute", mock.Anything, mock.Anything).
+            Return(nil, apperror.ErrProductNotFound)
+
+        w := doRequest(t, router, http.MethodGet, "/api/v1/products/999", nil)
+        assert.Equal(t, http.StatusNotFound, w.Code)
+    })
+
+    t.Run("invalid id - not a number", func(t *testing.T) {
+        router, _, _ := setupProductRouter(t)
+        w := doRequest(t, router, http.MethodGet, "/api/v1/products/abc", nil)
+        assert.Equal(t, http.StatusBadRequest, w.Code)
+    })
 }
 ```
 
+### Integration Test dengan Database Nyata
+
+```go
+// test/integration/product_handler_integration_test.go
+//go:build integration
+
+package integration_test
+
+import (
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "testing"
+
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+)
+
+// TestProductAPI_Integration menjalankan full test dengan server dan DB nyata
+func TestProductAPI_Integration(t *testing.T) {
+    // Setup: start test server dengan real DB (testcontainers)
+    db := SetupTestDatabase(t)
+    server := SetupTestServer(t, db)
+    defer server.Close()
+
+    baseURL := server.URL
+
+    // Helper untuk auth
+    token := getAuthToken(t, baseURL, "admin@test.com", "AdminPass123")
+
+    t.Run("CRUD flow", func(t *testing.T) {
+        // 1. CREATE
+        createResp, err := http.Post(
+            baseURL+"/api/v1/products",
+            "application/json",
+            strings.NewReader(`{"name":"Test Product","price":50000,"stock":100,"sku":"TEST-00001"}`),
+        )
+        require.NoError(t, err)
+        assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+
+        var createBody map[string]interface{}
+        json.NewDecoder(createResp.Body).Decode(&createBody)
+        productID := int(createBody["data"].(map[string]interface{})["id"].(float64))
+
+        // 2. GET
+        getResp, _ := http.Get(fmt.Sprintf("%s/api/v1/products/%d", baseURL, productID))
+        assert.Equal(t, http.StatusOK, getResp.StatusCode)
+
+        // 3. LIST
+        listResp, _ := http.Get(baseURL + "/api/v1/products?page=1&per_page=10")
+        assert.Equal(t, http.StatusOK, listResp.StatusCode)
+
+        // 4. DELETE
+        req, _ := http.NewRequest(http.MethodDelete,
+            fmt.Sprintf("%s/api/v1/products/%d", baseURL, productID), nil)
+        req.Header.Set("Authorization", "Bearer "+token)
+        deleteResp, _ := http.DefaultClient.Do(req)
+        assert.Equal(t, http.StatusNoContent, deleteResp.StatusCode)
+
+        // Verify deleted
+        getAfterDelete, _ := http.Get(fmt.Sprintf("%s/api/v1/products/%d", baseURL, productID))
+        assert.Equal(t, http.StatusNotFound, getAfterDelete.StatusCode)
+    })
+}
+```
+
+### Test dengan Authentication Header
+
+```go
+// Helper untuk test authenticated endpoints
+func withAuth(t *testing.T, token string, req *http.Request) *http.Request {
+    t.Helper()
+    req.Header.Set("Authorization", "Bearer "+token)
+    return req
+}
+
+func TestProductHandler_CreateRequiresAuth(t *testing.T) {
+    router, _, _ := setupProductRouter(t)
+
+    // Tanpa auth header → 401
+    w := doRequest(t, router, http.MethodPost, "/api/v1/products", map[string]interface{}{
+        "name": "Laptop", "price": 1000, "sku": "TST-00001",
+    })
+    assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+```
+
+### 🏋️ Latihan 3.13
+
+1. Tulis **complete HTTP handler tests** untuk Blog API: (a) `POST /posts` — success 201, validation error 400, unauthorized 401, (b) `GET /posts/:id` — success, not found 404, (c) `PUT /posts/:id` — success, not owner 403. Gunakan table-driven tests.
+2. Buat **integration test** untuk `GET /posts?page=1&per_page=10&category=tech`: test pagination (total, per_page, current_page), filter by category, dan sort by created_at DESC. Gunakan testcontainers dengan real PostgreSQL.
+3. Buat **API test helper package** `test/apitest` dengan helper functions: `NewRequest(method, path, body)`, `WithAuth(token)`, `AssertSuccess(t, w, statusCode)`, `AssertError(t, w, errorCode)`, `DecodeResponse(t, w, target)`. Gunakan di semua handler tests.
+
 ---
+
 
 ## 🎯 Review & Checkpoint Fase 3
 

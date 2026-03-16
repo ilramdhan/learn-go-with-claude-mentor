@@ -819,6 +819,75 @@ spec:
           port: 53
 ```
 
+### TLS dengan cert-manager & Let's Encrypt
+
+cert-manager otomatis provisioning dan renewal TLS certificates.
+
+```bash
+# Install cert-manager
+helm repo add jetstack https://charts.jetstack.io
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager --create-namespace \
+  --set installCRDs=true
+```
+
+```yaml
+# k8s/cert-manager/cluster-issuer.yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@myecommerce.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-private-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+---
+# k8s/ingress-tls.yaml — Ingress dengan TLS otomatis
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecommerce-ingress
+  namespace: production
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.myecommerce.com
+      secretName: ecommerce-tls-secret  # cert-manager akan isi ini otomatis!
+  rules:
+    - host: api.myecommerce.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
+```
+
+```bash
+# Verify certificate issued
+kubectl get certificate -n production
+# NAME                     READY   SECRET                AGE
+# ecommerce-tls-secret     True    ecommerce-tls-secret  2m
+
+# Check cert details
+kubectl describe certificate ecommerce-tls-secret -n production
+```
+
+
 ### PodDisruptionBudget
 
 ```yaml
@@ -2051,6 +2120,104 @@ terraform state show aws_db_instance.auth_db
 terraform import aws_db_instance.existing myexisting-db  # import existing resource
 ```
 
+### Remote State & Workspaces
+
+```hcl
+# terraform/backend.tf — simpan state di S3 (tidak di local!)
+terraform {
+  backend "s3" {
+    bucket         = "mycompany-terraform-state"
+    key            = "ecommerce/terraform.tfstate"
+    region         = "ap-southeast-1"
+    encrypt        = true                    # enkripsi state di S3
+    dynamodb_table = "terraform-state-lock"  # lock untuk prevent concurrent apply
+  }
+}
+
+# Atau gunakan Terraform Cloud (gratis untuk tim kecil):
+# terraform {
+#   cloud {
+#     organization = "mycompany"
+#     workspaces {
+#       name = "ecommerce-production"
+#     }
+#   }
+# }
+```
+
+```bash
+# Terraform Workspaces untuk multiple environments
+terraform workspace new staging
+terraform workspace new production
+terraform workspace list     # lihat semua
+terraform workspace select production
+
+# Gunakan workspace dalam kode
+variable "environment" {
+  default = terraform.workspace  # "staging" atau "production"
+}
+
+resource "aws_db_instance" "this" {
+  instance_class = terraform.workspace == "production" ? "db.t3.medium" : "db.t3.micro"
+  multi_az       = terraform.workspace == "production"
+}
+```
+
+### GitHub Actions untuk Terraform
+
+```yaml
+# .github/workflows/terraform.yml
+name: Terraform
+
+on:
+  push:
+    branches: [main]
+    paths: ['terraform/**']
+  pull_request:
+    paths: ['terraform/**']
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform/environments/production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Terraform Init
+        run: terraform init
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      # Hanya apply di main branch (bukan PR)
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform apply tfplan
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+```
+
+
 ### 🏋️ Latihan 11.10
 
 1. Tulis **Terraform module** untuk membuat PostgreSQL di Docker (gunakan provider Kreuzwerker Docker untuk local development, bukan AWS). Buat module yang bisa di-reuse untuk auth-db dan product-db. Gunakan `terraform apply` untuk membuat kedua database.
@@ -2513,6 +2680,96 @@ logs:
 3. Lakukan **end-to-end production drill**: dimulai dari fresh minikube cluster, deploy SEMUA komponen (dengan ArgoCD atau Helm), sampai semua service running, metrics tercollect, traces terlihat di Jaeger, dan checkout flow berjalan. Dokumentasikan waktu yang diperlukan dan hambatan yang ditemui.
 
 ---
+
+### Kustomize — Alternatif Helm yang Lebih Sederhana
+
+```
+Helm vs Kustomize:
+  Helm:      Template engine penuh, variabel, functions, conditionals
+             Cocok untuk: distributable charts, complex parameterization
+  Kustomize: Patch-based overlays, tidak ada template engine
+             Cocok untuk: simple env differences, sudah built into kubectl
+
+Kapan pakai Kustomize:
+  - Tim kecil yang tidak butuh Helm complexity
+  - Sudah punya YAML yang ingin di-customize per environment
+  - Kubernetes manifests yang relatif simpel
+
+Kapan pakai Helm:
+  - Chart yang akan di-share/distribute
+  - Banyak kondisional dan logic
+  - Perlu lifecycle hooks (pre/post install)
+```
+
+```yaml
+# Struktur Kustomize:
+# k8s/
+# ├── base/                    ← template dasar
+# │   ├── kustomization.yaml
+# │   ├── deployment.yaml
+# │   └── service.yaml
+# └── overlays/
+#     ├── staging/             ← staging overrides
+#     │   ├── kustomization.yaml
+#     │   └── replica-patch.yaml
+#     └── production/          ← production overrides
+#         ├── kustomization.yaml
+#         └── resources-patch.yaml
+
+# base/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - service.yaml
+commonLabels:
+  app: auth-service
+  managed-by: kustomize
+
+# overlays/production/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+bases:
+  - ../../base
+namespace: production
+patches:
+  - path: resources-patch.yaml
+images:
+  - name: auth-service
+    newTag: abc1234  # ← update image tag tanpa edit base!
+
+# overlays/production/resources-patch.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+        - name: auth-service
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+```
+
+```bash
+# Build dan apply
+kubectl apply -k k8s/overlays/production/
+
+# Preview (dry-run)
+kubectl kustomize k8s/overlays/production/
+
+# Update image tag di semua overlays:
+cd k8s/overlays/production
+kustomize edit set image auth-service=ghcr.io/org/auth-service:newsha
+```
+
 
 ## 🎯 Review & Checkpoint Fase 11
 

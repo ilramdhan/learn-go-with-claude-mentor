@@ -603,6 +603,72 @@ func TestRegisterUseCase_SavesCorrectUser(t *testing.T) {
 }
 ```
 
+### testify/mock vs gomock — Kapan Pakai Mana?
+
+```
+TESTIFY/MOCK (yang sudah kita pakai):
+  Pros:
+    + Lebih fleksibel — bisa set expectation kapan saja
+    + Error messages lebih readable
+    + Tidak butuh codegen untuk setup
+    + Cocok untuk test yang lebih behavior-focused
+  Cons:
+    - Tidak compile-time safe (typo di method name baru ketahuan saat run)
+    - Mock setup lebih verbose
+
+GOMOCK (alternatif populer):
+  Pros:
+    + Compile-time type-safe (typo = compile error)
+    + Strict mode: unexpected calls = test fail
+    + InOrder untuk verify urutan calls
+  Cons:
+    - Butuh mockgen untuk generate (lebih banyak setup)
+    - API lebih kompleks
+
+REKOMENDASI:
+  Fase awal / tim kecil → testify/mock (lebih mudah dipelajari)
+  Strict ordering penting → gomock
+  Large codebase / type safety penting → gomock
+```
+
+```go
+// gomock example untuk perbandingan:
+// install: go install github.com/golang/mock/mockgen@latest
+// generate: mockgen -source=internal/repository/user_repository.go -destination=mocks/user_repository.go
+
+import "github.com/golang/mock/gomock"
+
+func TestLoginUseCase_WithGoMock(t *testing.T) {
+    ctrl := gomock.NewController(t)
+    defer ctrl.Finish() // verify all expectations
+
+    mockRepo := mocks.NewMockUserRepository(ctrl)
+    mockHasher := mocks.NewMockPasswordHasher(ctrl)
+
+    // Expectation: FindByEmail HARUS dipanggil tepat 1x dengan argument ini
+    mockRepo.EXPECT().
+        FindByEmail(gomock.Any(), "alice@test.com").
+        Return(&entity.User{ID: 1, Email: "alice@test.com"}, nil).
+        Times(1)
+
+    // Expectation dengan urutan (InOrder)
+    gomock.InOrder(
+        mockHasher.EXPECT().Verify("SecurePass123", "hashedpass").Return(true),
+        mockRepo.EXPECT().UpdateLastLogin(gomock.Any(), uint(1)).Return(nil),
+    )
+
+    uc := auth.NewLoginUseCase(mockRepo, mockHasher)
+    _, err := uc.Execute(context.Background(), auth.LoginInput{
+        Email:    "alice@test.com",
+        Password: "SecurePass123",
+    })
+
+    require.NoError(t, err)
+    // ctrl.Finish() akan verify semua expectations terpenuhi
+}
+```
+
+
 ### 🏋️ Latihan 10.3
 
 1. Buat `InMemoryOrderRepository` (fake) yang mengimplementasikan `OrderCommandRepository`. Tambahkan method helper: `Seed(orders...)`, `Count()`, `GetAll()`. Tulis test untuk `CreateOrderUseCase` menggunakan fake repository.
@@ -1708,6 +1774,127 @@ func TestNewMoney_NegativeAmount(t *testing.T) {
 }
 ```
 
+### Memahami Hasil Mutation Testing
+
+```
+SURVIVED MUTANT = bug yang test kamu TIDAK bisa deteksi!
+KILLED MUTANT   = bug yang test kamu berhasil deteksi
+
+Contoh kasus nyata:
+
+Original code:
+  func (o *Order) CanCancel() bool {
+      return o.status == StatusPending || o.status == StatusConfirmed
+  }
+
+Mutant 1 (survived ⚠️):
+  return o.status == StatusPending && o.status == StatusConfirmed
+  // Test tidak detect → test tidak pernah test case HANYA Confirmed!
+
+Mutant 2 (killed ✅):
+  return o.status != StatusPending || o.status == StatusConfirmed
+  // Test detect → ada test yang expects Pending = cancelable
+
+CARA IMPROVE: Tambah test yang explicit test setiap kondisi:
+  - Cancel saat StatusPending → success
+  - Cancel saat StatusConfirmed → success
+  - Cancel saat StatusCancelled → error (tidak bisa cancel ulang)
+  - Cancel saat StatusDelivered → error
+```
+
+### Integrasi Mutation Testing ke CI
+
+```yaml
+# .github/workflows/mutation-test.yml
+# Jalankan mutation testing weekly (terlalu lambat untuk setiap commit)
+name: Mutation Testing
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # setiap Senin jam 3 pagi
+  workflow_dispatch:
+
+jobs:
+  mutation-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install go-mutesting
+        run: go install github.com/zimmski/go-mutesting/cmd/go-mutesting@latest
+
+      - name: Run mutation tests
+        run: |
+          go-mutesting ./internal/domain/... 2>&1 | tee mutation-report.txt
+          SCORE=$(tail -1 mutation-report.txt | grep -oP '\d+\.\d+(?= \()')
+          echo "Mutation score: $SCORE"
+
+          # Fail jika score di bawah threshold
+          python3 -c "
+          score = float('$SCORE')
+          if score < 0.75:
+              print(f'Mutation score {score} below threshold 0.75')
+              exit(1)
+          print(f'OK: mutation score {score}')
+          "
+
+      - name: Upload report
+        uses: actions/upload-artifact@v3
+        with:
+          name: mutation-report
+          path: mutation-report.txt
+```
+
+### Praktik: Improve Mutation Score Step by Step
+
+```go
+// Workflow yang direkomendasikan:
+// 1. Jalankan mutation testing
+// 2. Lihat surviving mutants
+// 3. Untuk setiap surviving mutant: tambah test yang specifically test kondisi tersebut
+// 4. Re-run, ulangi sampai score > 80%
+
+// Contoh: surviving mutant di Order.Submit()
+// Original:
+func (o *Order) Submit() error {
+    if len(o.items) == 0 {  // Mutant: if len(o.items) != 0
+        return errors.New("cannot submit empty order")
+    }
+    if o.status != StatusDraft {  // Mutant: if o.status == StatusDraft
+        return errors.New("can only submit draft orders")
+    }
+    o.status = StatusPending
+    return nil
+}
+
+// Test yang membunuh mutant ini:
+func TestOrder_Submit(t *testing.T) {
+    t.Run("fails with empty items", func(t *testing.T) {
+        order := newOrderWithNoItems()
+        err := order.Submit()
+        require.Error(t, err)  // Mutant len(o.items) != 0 → menyebabkan error saat ada items
+        assert.Contains(t, err.Error(), "empty")
+    })
+
+    t.Run("fails when not draft", func(t *testing.T) {
+        order := newConfirmedOrder()
+        err := order.Submit()
+        require.Error(t, err)  // Mutant == StatusDraft → fail saat status IS draft
+        assert.Contains(t, err.Error(), "draft")
+    })
+
+    t.Run("succeeds when draft with items", func(t *testing.T) {
+        order := newDraftOrderWithItems()
+        err := order.Submit()
+        require.NoError(t, err)
+        assert.Equal(t, StatusPending, order.Status())
+    })
+}
+```
+
+
 ### 🏋️ Latihan 10.10
 
 1. Jalankan mutation testing pada `Order` aggregate. Identifikasi 3 mutant yang berhasil survive (test tidak detect). Tulis test tambahan yang membunuh mutant tersebut.
@@ -1787,6 +1974,116 @@ go test -coverprofile=coverage.out \
 go tool cover -func=coverage.out | sort -k 3 -n | head -20
 # Menampilkan functions dengan coverage terendah → prioritaskan untuk test
 ```
+
+### Branch Coverage vs Statement Coverage
+
+```go
+// Statement coverage: setiap BARIS kode dieksekusi
+// Branch coverage:    setiap CABANG (if/else) dieksekusi
+
+func Classify(n int) string {
+    if n > 0 {          // branch: n>0 true, n>0 false
+        return "positive"
+    } else if n < 0 {   // branch: n<0 true, n<0 false
+        return "negative"
+    }
+    return "zero"
+}
+
+// Test dengan hanya n=5:
+//   Statement coverage: 66% (baris "return negative" dan "return zero" tidak dieksekusi)
+//   Branch coverage: 50% (n>0 true dieksekusi, false tidak)
+
+// Test yang benar untuk 100% branch coverage:
+func TestClassify(t *testing.T) {
+    assert.Equal(t, "positive", Classify(5))   // n>0 = true
+    assert.Equal(t, "negative", Classify(-3))  // n<0 = true
+    assert.Equal(t, "zero", Classify(0))       // n>0 = false, n<0 = false
+}
+```
+
+### Coverage untuk Table-Driven Tests
+
+```go
+// Table-driven test biasanya memberikan coverage yang lebih baik
+// karena mudah menambah edge cases
+
+func TestValidateEmail(t *testing.T) {
+    tests := []struct {
+        email   string
+        wantErr bool
+    }{
+        // Happy path
+        {"alice@example.com", false},
+        {"user.name+tag@domain.co.id", false},
+
+        // Error paths (untuk branch coverage)
+        {"", true},           // empty string
+        {"@", true},          // no local part
+        {"a@", true},         // no domain
+        {"a@b", true},        // domain too short
+        {"a b@c.com", true},  // space in email
+        {"a@c.com.", true},   // trailing dot
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.email, func(t *testing.T) {
+            _, err := valueobject.NewEmail(tt.email)
+            if tt.wantErr {
+                assert.Error(t, err)
+            } else {
+                assert.NoError(t, err)
+            }
+        })
+    }
+}
+```
+
+### Mengecualikan Kode dari Coverage
+
+```go
+// Beberapa kode memang tidak perlu di-test:
+// - generated code
+// - main() entrypoint
+// - platform-specific code
+
+// Tandai dengan comment pragma:
+func generatedFunc() { //nolint
+    // kode generated, skip dari coverage analysis
+}
+
+// Di .coveragerc atau Makefile:
+// Exclude file tertentu dari coverage report
+go test -coverprofile=cov.out ./...
+grep -v "_gen.go\|_mock.go\|main.go" cov.out > filtered.out
+go tool cover -func=filtered.out
+```
+
+### Practical Coverage Workflow
+
+```bash
+# 1. Generate coverage dengan HTML viewer
+go test -coverprofile=coverage.out -covermode=atomic ./...
+go tool cover -html=coverage.out -o coverage.html
+
+# 2. Buka dan identifikasi uncovered lines
+open coverage.html  # merah = tidak di-cover, hijau = di-cover
+
+# 3. Focus pada high-value uncovered code:
+#    - Error handling paths
+#    - Edge cases di domain logic
+#    - Security checks
+
+# 4. Jangan cover yang tidak perlu:
+#    - Logging statements
+#    - Simple getters
+#    - Platform initialization code
+
+# Per-package summary (sort by coverage)
+go tool cover -func=coverage.out | sort -k3 -n | head -20
+# Tampilkan 20 function dengan coverage TERENDAH
+```
+
 
 ### 🏋️ Latihan 10.11
 
@@ -2142,6 +2439,92 @@ gotestsum --format github-actions -- -v -race ./...
 # Watch mode (re-run tests saat file berubah)
 gotestsum --watch ./...
 ```
+
+### Test Build Tags — Memisahkan Test berdasarkan Kategori
+
+```go
+// Build tags memungkinkan kamu jalankan subset test berdasarkan kebutuhan:
+// go test ./...                  → hanya test tanpa build tag (unit tests)
+// go test -tags integration ./... → test unit + integration
+// go test -tags e2e ./...        → semua test
+
+// internal/repository/user_repository_integration_test.go
+//go:build integration
+// +build integration
+
+package repository_test
+
+// Test ini HANYA dijalankan dengan: go test -tags integration
+// Cocok untuk: test yang butuh external dependencies (database, redis, kafka)
+
+import (
+    "testing"
+    "github.com/stretchr/testify/require"
+)
+
+func TestUserRepository_Integration_Save(t *testing.T) {
+    // Setup real database connection
+    db := setupRealDatabase(t)
+    repo := NewUserRepository(db)
+
+    // Test dengan database sungguhan
+    user, err := entity.NewUser("Alice", "alice@test.com", "hash")
+    require.NoError(t, err)
+
+    err = repo.Save(context.Background(), user)
+    require.NoError(t, err)
+    require.NotZero(t, user.ID)
+}
+```
+
+```go
+// test/e2e/checkout_test.go
+//go:build e2e
+
+package e2e_test
+
+// Test ini HANYA dijalankan dengan: go test -tags e2e
+// Butuh semua service running (docker compose up)
+
+func TestCheckoutFlow_E2E(t *testing.T) {
+    baseURL := os.Getenv("E2E_BASE_URL")
+    if baseURL == "" {
+        t.Skip("E2E_BASE_URL not set, skipping e2e tests")
+    }
+
+    // 1. Register user
+    // 2. Login
+    // 3. Create order
+    // 4. Submit order
+    // 5. Verify order status
+}
+```
+
+```makefile
+# Makefile — run berbagai level tests
+test-unit:
+    go test -v -race -short ./...
+
+test-integration:
+    go test -v -race -tags integration ./...
+
+test-e2e:
+    E2E_BASE_URL=http://localhost:8080 go test -v -tags e2e ./test/e2e/...
+
+test-all: test-unit test-integration
+```
+
+```yaml
+# GitHub Actions — jalankan integration test dengan service containers
+test-integration:
+  services:
+    postgres:
+      image: postgres:16-alpine
+  steps:
+    - name: Run integration tests
+      run: go test -v -race -tags integration ./...
+```
+
 
 ### 🏋️ Latihan 10.13
 
