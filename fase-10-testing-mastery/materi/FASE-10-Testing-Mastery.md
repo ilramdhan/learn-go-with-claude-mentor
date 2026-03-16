@@ -377,6 +377,65 @@ func TestUserUseCaseSuite(t *testing.T) {
 }
 ```
 
+### t.Parallel() — Keamanan dan Gotchas
+
+```go
+// GOTCHA PALING UMUM dengan t.Parallel(): loop variable capture
+
+// ❌ SALAH: classic loop variable bug
+func TestProducts_Bad(t *testing.T) {
+    tests := []struct{ id int }{{1}, {2}, {3}}
+    for _, tt := range tests {
+        t.Run(fmt.Sprintf("id=%d", tt.id), func(t *testing.T) {
+            t.Parallel()
+            // BUG: semua goroutine capture 'tt' yang sama!
+            // Saat goroutine jalan, loop sudah selesai → tt.id = 3 selalu
+            result := fetchProduct(tt.id)
+            assert.Equal(t, tt.id, result.ID) // FAIL: selalu compare 3
+        })
+    }
+}
+
+// ✅ BENAR: capture loop variable dengan local copy
+func TestProducts_Good(t *testing.T) {
+    tests := []struct{ id int }{{1}, {2}, {3}}
+    for _, tt := range tests {
+        tt := tt // ← PENTING: buat copy lokal sebelum goroutine!
+        t.Run(fmt.Sprintf("id=%d", tt.id), func(t *testing.T) {
+            t.Parallel()
+            result := fetchProduct(tt.id)
+            assert.Equal(t, tt.id, result.ID) // Sekarang benar
+        })
+    }
+}
+
+// Go 1.22+ fix: loop variable semantics berubah (tidak perlu tt := tt lagi)
+// Tapi untuk kompatibilitas, tetap tulis tt := tt
+
+// KAPAN pakai t.Parallel():
+// ✅ Test yang independent (tidak share mutable state)
+// ✅ Test yang lambat (I/O, sleep, network)
+// ❌ Test yang share global state (global variable, singleton)
+// ❌ Test yang pakai database rows yang sama
+
+// PASTIKAN test cleanup aman dengan t.Parallel():
+func TestWithCleanup(t *testing.T) {
+    t.Parallel()
+
+    // Buat resource unik per test (bukan shared!)
+    userID := createUniqueUser(t) // ID unik per test run
+
+    t.Cleanup(func() {
+        deleteUser(userID) // cleanup hanya resource test ini
+    })
+
+    // Test dengan resource yang terisolasi
+    result := getUser(userID)
+    assert.NotNil(t, result)
+}
+```
+
+
 ### 🏋️ Latihan 10.2
 
 1. Tulis **table-driven test** lengkap untuk `ValidatePassword` dari Fase 4 value object. Cover: too short, no uppercase, no lowercase, no digit, too common password, valid password. Minimal 8 test cases.

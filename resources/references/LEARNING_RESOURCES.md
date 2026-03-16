@@ -1,140 +1,149 @@
-# 📚 Referensi & Sumber Belajar Tambahan
+# 📚 Referensi & Sumber Belajar
 
-Koleksi referensi berkualitas untuk melengkapi kurikulum ini.
+Koleksi sumber belajar terbaik untuk melengkapi setiap fase kurikulum ini.
 
 ---
 
-## 📖 Dokumentasi Resmi
+## 📖 Dokumentasi Resmi (Wajib Bookmarked)
 
-| Sumber | URL | Keterangan |
-|--------|-----|-----------|
-| Go Documentation | https://go.dev/doc/ | Dokumentasi resmi, wajib bookmarked |
-| Effective Go | https://go.dev/doc/effective_go | Panduan idiom Go dari tim Go |
-| Go Spec | https://go.dev/ref/spec | Spesifikasi bahasa formal |
-| Go Standard Library | https://pkg.go.dev/std | Referensi semua package standard |
-| Go Blog | https://go.dev/blog | Artikel resmi tim Go |
+| Sumber | URL | Fase yang Relevan |
+|--------|-----|-------------------|
+| Go Documentation | https://go.dev/doc/ | Semua |
+| Effective Go | https://go.dev/doc/effective_go | Fase 1-2 |
+| Go Specification | https://go.dev/ref/spec | Semua |
+| Go Standard Library | https://pkg.go.dev/std | Semua |
+| Go Blog | https://go.dev/blog | Semua |
+| Go Playground | https://go.dev/play | Fase 1-2 |
+
+---
+
+## 📘 Buku Terbaik
+
+| Buku | Penulis | Level | Fase |
+|------|---------|-------|------|
+| The Go Programming Language | Donovan & Kernighan | Beginner-Mid | 1-2 |
+| Go in Action | Kennedy, Ketelsen, Martin | Intermediate | 2-4 |
+| Learning Go | Jon Bodner | Intermediate | 1-4 |
+| Cloud Native Go | Matthew Titmus | Advanced | 7-11 |
+| Domain-Driven Design | Eric Evans | Advanced | 6 |
+| Building Microservices | Sam Newman | Advanced | 7-8 |
+| Designing Data-Intensive Applications | Martin Kleppmann | Advanced | 7-9 |
 
 ---
 
 ## 🎮 Belajar Interaktif
 
-| Platform | URL | Keterangan |
-|----------|-----|-----------|
-| A Tour of Go | https://go.dev/tour/ | Tutorial interaktif resmi — **mulai di sini!** |
-| Go by Example | https://gobyexample.com/ | Contoh kode pendek untuk setiap konsep |
-| Go Playground | https://go.dev/play/ | Editor online untuk eksperimen cepat |
-| Gophercises | https://gophercises.com/ | Latihan project kecil |
+| Platform | Konten | Level |
+|----------|--------|-------|
+| [Tour of Go](https://go.dev/tour) | Tutorial interaktif resmi | Beginner |
+| [Go by Example](https://gobyexample.com) | Contoh kode annotated | Beginner-Mid |
+| [Exercism Go Track](https://exercism.org/tracks/go) | Latihan dengan mentor | Semua |
+| [LeetCode (Go)](https://leetcode.com) | Algoritma & data structures | Semua |
+| [Gophercises](https://gophercises.com) | Project exercises | Intermediate |
 
 ---
 
-## 🗺️ Roadmaps
+## 🎥 Video & Kursus
 
-| Platform | URL |
-|----------|-----|
-| roadmap.sh/golang | https://roadmap.sh/golang |
-| roadmap.sh/backend | https://roadmap.sh/backend |
-
----
-
-## 📚 Buku yang Direkomendasikan
-
-### Pemula–Menengah
-- **The Go Programming Language** — Donovan & Kernighan  
-  *"Bibel"-nya Go. Wajib dibaca.*
-  
-- **Learning Go** — Jon Bodner  
-  *Modern, mencakup generics dan idiom terbaru*
-
-### Menengah–Advanced  
-- **100 Go Mistakes and How to Avoid Them** — Teiva Harsanyi  
-  *Sangat practical, banyak gotchas yang tidak ada di tempat lain*
-
-- **Go in Action** — Kennedy, Ketelsen, St. Martin  
-  *Deep dive ke internals Go*
-
-### Architecture & Design
-- **Building Microservices** (2nd Ed) — Sam Newman  
-  *Referensi microservices yang paling komprehensif*
-  
-- **Clean Architecture** — Robert C. Martin  
-  *Fondasi konseptual untuk Fase 4*
-  
-- **Domain-Driven Design** — Eric Evans  
-  *"Blue Book" — reference untuk Fase 6*
-  
-- **Implementing Domain-Driven Design** — Vaughn Vernon  
-  *"Red Book" — lebih practical dari Blue Book*
+| Platform | Konten | Level |
+|----------|--------|-------|
+| [freeCodeCamp Go Course](https://www.youtube.com/watch?v=un6ZyFkqFKo) | 25 jam, Go lengkap | Beginner |
+| [Ardan Labs Go Training](https://www.ardanlabs.com/training/) | Ultimate Go | Intermediate-Advanced |
+| [TechWorld with Nana](https://youtube.com/@TechWorldwithNana) | Docker, K8s, DevOps | Fase 7-11 |
+| [Hussein Nasser](https://youtube.com/@hnasr) | Backend engineering | Fase 4-8 |
+| [ByteByteGo](https://youtube.com/@ByteByteGo) | System Design | Fase 7 |
 
 ---
 
-## 🎥 Video Resources
+## 🔧 Tools yang Wajib Dipasang
 
-| Channel | Platform | Keterangan |
-|---------|----------|-----------|
-| JustForFunc | YouTube | Go idioms dan patterns |
-| Gopher Academy | YouTube | GopherCon talks |
-| TechWorld with Nana | YouTube | Kubernetes & microservices |
-| Hussein Nasser | YouTube | Backend engineering |
-
----
-
-## 📰 Newsletters & Blogs
-
-| Sumber | URL | Frekuensi |
-|--------|-----|-----------|
-| Go Weekly | https://golangweekly.com/ | Mingguan |
-| Ardan Labs Blog | https://ardanlabs.com/blog/ | Irregular |
-| Dave Cheney's Blog | https://dave.cheney.net/ | Classic posts |
-| The Go Blog | https://go.dev/blog | Resmi |
-
----
-
-## 💬 Komunitas
-
-| Platform | Link | Keterangan |
-|----------|------|-----------|
-| Gophers Slack | https://gophers.slack.com | Komunitas global |
-| r/golang | https://reddit.com/r/golang | Reddit |
-| Go Forum | https://forum.golangbridge.org/ | Forum resmi |
-| Stack Overflow | Tag: `go` | Q&A |
-
----
-
-## 🔧 Awesome Go Lists
-
-- https://github.com/avelino/awesome-go — Kurasi library, tools, dan resources Go
-- https://github.com/nicholasgasior/go-patterns — Design patterns di Go
-
----
-
-## 🏢 Go di Industri
-
-Bacaan menarik tentang penggunaan Go di perusahaan:
-
-- [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
-- [Google's Go Style Guide](https://google.github.io/styleguide/go/)
-- [How Uber Handles Large Scale Distributed Systems with Go](https://eng.uber.com/go/)
-- [Go at Scale — Dropbox Engineering](https://dropbox.tech/infrastructure/open-sourcing-our-go-libraries)
-
----
-
-## 📋 Go Proverbs
-
-> *Kata-kata bijak dari komunitas Go:*
-
-```
-Don't communicate by sharing memory; share memory by communicating.
-Concurrency is not parallelism.
-The bigger the interface, the weaker the abstraction.
-Make the zero value useful.
-interface{} says nothing.
-A little copying is better than a little dependency.
-Clear is better than clever.
-Errors are values.
-Don't just check errors, handle them gracefully.
-Design the architecture, name the components, document the details.
-Documentation is for users.
-Gofmt's style is no one's favorite, yet gofmt is everyone's favorite.
+### Fase 1-3 (Dasar)
+```bash
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+go install honnef.co/go/tools/cmd/staticcheck@latest
+go install github.com/go-delve/delve/cmd/dlv@latest  # debugger
 ```
 
-— [Go Proverbs](https://go-proverbs.github.io/) by Rob Pike
+### Fase 4-6 (Arsitektur)
+```bash
+go install github.com/vektra/mockery/v2@latest          # mock generator
+go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+```
+
+### Fase 5 (gRPC)
+```bash
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+go install github.com/bufbuild/buf/cmd/buf@latest
+brew install grpcurl   # gRPC CLI client
+```
+
+### Fase 7-11 (Production)
+```bash
+# Docker & Kubernetes
+brew install --cask docker
+brew install kubectl minikube helm
+brew install stern     # multi-pod log streaming
+brew install k9s       # Kubernetes TUI dashboard
+
+# Load testing
+brew install k6
+
+# Profiling
+go install github.com/google/pprof@latest
+
+# Terraform
+brew install terraform
+
+# ArgoCD CLI
+brew install argocd
+```
+
+---
+
+## 🏛️ Project & Repository Referensi
+
+| Repository | Konten | Pelajari untuk |
+|------------|--------|----------------|
+| [go-micro](https://github.com/micro/micro) | Microservices framework | Fase 7 |
+| [prometheus](https://github.com/prometheus/prometheus) | Codebase Go production | Fase 9 |
+| [kubernetes](https://github.com/kubernetes/kubernetes) | Go di scale besar | Fase 7, 11 |
+| [docker](https://github.com/moby/moby) | Go networking & container | Fase 7 |
+| [cockroachdb](https://github.com/cockroachdb/cockroach) | Distributed systems Go | Fase 7-8 |
+| [etcd](https://github.com/etcd-io/etcd) | Distributed key-value | Fase 7 |
+
+---
+
+## 📰 Blog & Newsletter
+
+| Sumber | Topik |
+|--------|-------|
+| [The Go Blog](https://go.dev/blog) | Official Go announcements |
+| [Dave Cheney's Blog](https://dave.cheney.net) | Go internals & best practices |
+| [Ardan Labs Blog](https://www.ardanlabs.com/blog/) | Go deep dives |
+| [Go Weekly](https://golangweekly.com) | Newsletter mingguan |
+| [High Scalability](https://highscalability.com) | System design case studies |
+
+---
+
+## 🌐 Komunitas
+
+| Komunitas | Platform | Link |
+|-----------|----------|------|
+| Gophers Slack | Slack | https://gophers.slack.com |
+| r/golang | Reddit | https://reddit.com/r/golang |
+| Go Forum | Forum | https://forum.golangbridge.org |
+| GoBridge | Inclusivity | https://gobridge.org |
+| Golang Indonesia | Telegram | https://t.me/go_id |
+
+---
+
+## 📑 Paper & Design Docs
+
+| Paper | Topik | Relevan |
+|-------|-------|---------|
+| [MapReduce](https://research.google/pubs/pub62/) | Distributed computing | Fase 7 |
+| [The Chubby Lock Service](https://research.google/pubs/pub27897/) | Distributed coordination | Fase 7 |
+| [Kafka Paper](https://notes.stephenholiday.com/Kafka.pdf) | Event streaming design | Fase 8 |
+| [DORA State of DevOps](https://dora.dev/research/) | DevOps metrics | Fase 11 |
+| [Google SRE Book](https://sre.google/sre-book/table-of-contents/) | SRE practices | Fase 9, 11 |

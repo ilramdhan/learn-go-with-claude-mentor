@@ -987,6 +987,137 @@ func (r *userRepository) FindAll(ctx context.Context, opts FindOptions) ([]model
 ---
 
 
+### Pagination — Wajib untuk List Endpoints
+
+```go
+// internal/delivery/http/request/pagination.go
+package request
+
+import (
+    "math"
+    "github.com/gin-gonic/gin"
+)
+
+// PaginationRequest adalah parameter standar untuk semua list endpoint
+type PaginationRequest struct {
+    Page    int    `form:"page"    binding:"min=1"`
+    PerPage int    `form:"per_page" binding:"min=1,max=100"`
+    SortBy  string `form:"sort_by"`
+    SortDir string `form:"sort_dir" binding:"omitempty,oneof=asc desc"`
+}
+
+// WithDefaults mengisi nilai default jika tidak di-provide
+func (p *PaginationRequest) WithDefaults() *PaginationRequest {
+    if p.Page == 0 { p.Page = 1 }
+    if p.PerPage == 0 { p.PerPage = 10 }
+    if p.SortDir == "" { p.SortDir = "desc" }
+    return p
+}
+
+// Offset menghitung OFFSET untuk query SQL
+func (p *PaginationRequest) Offset() int {
+    return (p.Page - 1) * p.PerPage
+}
+
+// PaginationResponse adalah struktur response untuk list endpoint
+type PaginationResponse[T any] struct {
+    Data       []T   `json:"data"`
+    Total      int64 `json:"total"`
+    Page       int   `json:"page"`
+    PerPage    int   `json:"per_page"`
+    TotalPages int   `json:"total_pages"`
+    HasNext    bool  `json:"has_next"`
+    HasPrev    bool  `json:"has_prev"`
+}
+
+// NewPagination membuat PaginationResponse dari data dan total
+func NewPagination[T any](data []T, total int64, req *PaginationRequest) *PaginationResponse[T] {
+    totalPages := int(math.Ceil(float64(total) / float64(req.PerPage)))
+    return &PaginationResponse[T]{
+        Data:       data,
+        Total:      total,
+        Page:       req.Page,
+        PerPage:    req.PerPage,
+        TotalPages: totalPages,
+        HasNext:    req.Page < totalPages,
+        HasPrev:    req.Page > 1,
+    }
+}
+```
+
+```go
+// Penggunaan di handler
+func (h *ProductHandler) List(c *gin.Context) {
+    var req request.PaginationRequest
+    if err := c.ShouldBindQuery(&req); err != nil {
+        response.ValidationError(c, err)
+        return
+    }
+    req.WithDefaults()
+
+    products, total, err := h.listProductsUC.Execute(c.Request.Context(), usecase.ListProductsInput{
+        Page:    req.Page,
+        PerPage: req.PerPage,
+        SortBy:  req.SortBy,
+        SortDir: req.SortDir,
+    })
+    if err != nil {
+        response.InternalError(c, err)
+        return
+    }
+
+    response.OK(c, request.NewPagination(products, total, &req))
+}
+
+// Repository dengan pagination
+func (r *productRepository) FindAll(ctx context.Context, input FindAllInput) ([]*entity.Product, int64, error) {
+    var products []model.ProductModel
+    var total int64
+
+    q := r.db.WithContext(ctx).Model(&model.ProductModel{})
+
+    // Apply filters
+    if input.Category != "" {
+        q = q.Where("category = ?", input.Category)
+    }
+    if input.Search != "" {
+        q = q.Where("name ILIKE ? OR description ILIKE ?",
+            "%"+input.Search+"%", "%"+input.Search+"%")
+    }
+
+    // Count total sebelum pagination
+    q.Count(&total)
+
+    // Apply sorting dan pagination
+    sortCol := "created_at"
+    if input.SortBy != "" { sortCol = input.SortBy }
+    q = q.Order(sortCol + " " + input.SortDir).
+        Limit(input.PerPage).
+        Offset(input.Offset)
+
+    if err := q.Find(&products).Error; err != nil {
+        return nil, 0, err
+    }
+
+    return toProductEntities(products), total, nil
+}
+
+// Response contoh:
+// {
+//   "success": true,
+//   "data": {
+//     "data": [...],
+//     "total": 150,
+//     "page": 2,
+//     "per_page": 10,
+//     "total_pages": 15,
+//     "has_next": true,
+//     "has_prev": true
+//   }
+// }
+```
+
+
 ### 🏋️ Latihan 3.5
 
 1. Implementasikan `UserRepository` interface dengan method: `Create`, `FindByID`, `FindByEmail`, `Update`, `Delete`. Implementasikan dengan GORM. Tulis unit test menggunakan mock repository.
@@ -1146,6 +1277,92 @@ func GetUserRole(c *gin.Context) string {
 ```
 
 ---
+
+
+### Refresh Token Implementation
+
+```go
+// internal/domain/entity/refresh_token.go
+type RefreshToken struct {
+    ID        uint      `gorm:"primarykey"`
+    UserID    uint      `gorm:"not null;index"`
+    Token     string    `gorm:"size:255;not null;uniqueIndex"`
+    ExpiresAt time.Time `gorm:"not null"`
+    CreatedAt time.Time
+    RevokedAt *time.Time
+    UserAgent string    `gorm:"size:255"`
+    IPAddress string    `gorm:"size:45"`
+}
+
+func (r *RefreshToken) IsExpired() bool { return time.Now().After(r.ExpiresAt) }
+func (r *RefreshToken) IsRevoked() bool { return r.RevokedAt != nil }
+func (r *RefreshToken) IsValid() bool   { return !r.IsExpired() && !r.IsRevoked() }
+
+// internal/usecase/auth/refresh_token.go
+type RefreshTokenUseCase struct {
+    refreshRepo RefreshTokenRepository
+    userRepo    UserRepository
+    jwtSvc      JWTService
+}
+
+type RefreshTokenInput struct {
+    RefreshToken string
+    UserAgent    string
+    IPAddress    string
+}
+
+type RefreshTokenOutput struct {
+    AccessToken  string
+    RefreshToken string // NEW refresh token (rotation!)
+    ExpiresAt    time.Time
+}
+
+func (uc *RefreshTokenUseCase) Execute(ctx context.Context, input RefreshTokenInput) (*RefreshTokenOutput, error) {
+    // 1. Cari refresh token di database
+    rt, err := uc.refreshRepo.FindByToken(ctx, input.RefreshToken)
+    if err != nil || rt == nil || !rt.IsValid() {
+        return nil, apperror.ErrInvalidRefreshToken
+    }
+
+    // 2. Load user
+    user, err := uc.userRepo.FindByID(ctx, rt.UserID)
+    if err != nil || user == nil || !user.IsActive {
+        return nil, apperror.ErrUserNotFound
+    }
+
+    // 3. REVOKE token lama (refresh token rotation)
+    now := time.Now()
+    rt.RevokedAt = &now
+    uc.refreshRepo.Update(ctx, rt)
+
+    // 4. Generate token baru
+    accessToken, err := uc.jwtSvc.GenerateAccessToken(user.ID, user.Email, user.Role)
+    if err != nil {
+        return nil, err
+    }
+
+    newRefreshToken, expiresAt, err := uc.jwtSvc.GenerateRefreshToken()
+    if err != nil {
+        return nil, err
+    }
+
+    // 5. Simpan refresh token baru
+    newRT := &RefreshToken{
+        UserID:    user.ID,
+        Token:     newRefreshToken,
+        ExpiresAt: expiresAt,
+        UserAgent: input.UserAgent,
+        IPAddress: input.IPAddress,
+    }
+    uc.refreshRepo.Save(ctx, newRT)
+
+    return &RefreshTokenOutput{
+        AccessToken:  accessToken,
+        RefreshToken: newRefreshToken,
+        ExpiresAt:    expiresAt,
+    }, nil
+}
+```
 
 
 ### 🏋️ Latihan 3.6

@@ -4,14 +4,16 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://go.dev)
-[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Made with Claude](https://img.shields.io/badge/Made%20with-Claude%20AI-orange?logo=anthropic)](https://claude.ai)
-[![GitHub Stars](https://img.shields.io/github/stars/ilramdhan/learn-go-with-claude-mentor?style=social)](https://github.com/ilramdhan/learn-go-with-claude-mentor)
+[![Phases](https://img.shields.io/badge/Phases-11%20Lengkap-brightgreen)](./fase-01-go-fundamentals/)
+[![Modules](https://img.shields.io/badge/Total%20Modul-143-blue)](./fase-01-go-fundamentals/)
+[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-orange)](CONTRIBUTING.md)
+[![Made with Claude](https://img.shields.io/badge/Made%20with-Claude%20AI-blueviolet?logo=anthropic)](https://claude.ai)
 
-**Kurikulum belajar Go paling komprehensif — dari nol hingga Senior Go Developer**  
+**Kurikulum belajar Go paling komprehensif — dari nol hingga Senior Go Developer**
+
 *Dibuat bersama Claude AI sebagai mentor, untuk komunitas developer Indonesia dan dunia*
 
-[🚀 Mulai Belajar](#-cara-menggunakan) • [🗺️ Roadmap](#️-roadmap-belajar) • [🤝 Kontribusi](CONTRIBUTING.md) • [💬 Diskusi](https://github.com/ilramdhan/learn-go-with-claude-mentor/discussions)
+[🚀 Mulai Belajar](#-cara-memulai) • [🗺️ Roadmap](#️-roadmap-belajar) • [📋 Semua Fase](#-daftar-fase-lengkap) • [🤝 Kontribusi](CONTRIBUTING.md)
 
 </div>
 
@@ -19,291 +21,189 @@
 
 ## 📖 Tentang Proyek Ini
 
-Repositori ini berisi **kurikulum belajar Go yang lengkap** — mulai dari syntax dasar hingga arsitektur microservices production-grade yang dipakai oleh perusahaan tech seperti Google, Netflix, Tokopedia, Gojek, dan Grab.
+Repositori ini berisi **kurikulum belajar Go yang lengkap dan terstruktur** — mulai dari syntax dasar hingga arsitektur microservices production-grade yang dipakai oleh perusahaan tech seperti Google, Netflix, Tokopedia, Gojek, dan Grab.
 
-Kurikulum ini dibuat secara kolaboratif antara **manusia dan AI (Claude by Anthropic)**, kemudian di-review dan disesuaikan untuk kebutuhan komunitas developer Indonesia. Setiap materi dilengkapi dengan:
+Setiap materi dilengkapi dengan:
+- 📚 **Materi teori** — penjelasan mendalam dengan contoh kode yang bisa langsung dijalankan
+- 🏋️ **Latihan per modul** — 3 latihan per modul untuk memperkuat pemahaman
+- 🎯 **Project PRD nyata** — Product Requirements Document untuk project akhir setiap fase
+- ✅ **Review & Checklist** — self-assessment sebelum lanjut ke fase berikutnya
+- 📁 **Aset visual** — diagram, cheatsheet, dan referensi di folder `assets/`
 
-- 📚 **Materi teori** dengan penjelasan mendalam dan contoh kode lengkap
-- 🏋️ **Latihan per modul** untuk memperkuat pemahaman
-- 🎯 **Project nyata** dengan PRD (Product Requirements Document) lengkap
-- ✅ **Checklist review** untuk memastikan pemahaman sebelum lanjut
+### 🎯 Untuk Siapa?
 
-### 🎯 Siapa yang Cocok Menggunakan Ini?
-
-| Level | Deskripsi |
+| Level | Cocok Jika |
 |-------|-----------|
-| 🟢 Pemula | Punya pengalaman di bahasa lain (Python/JS/PHP), ingin belajar Go |
+| 🟢 Pemula | Punya pengalaman di Python/JS/PHP, ingin mulai Go dari nol |
 | 🟡 Junior Dev | Sudah paham Go dasar, ingin level up ke arsitektur yang lebih baik |
-| 🟠 Mid Dev | Ingin memahami microservices, gRPC, DDD, dan sistem terdistribusi |
-| 🔴 Senior Dev | Ingin referensi lengkap dan terstruktur untuk onboarding tim |
+| 🟠 Mid Dev | Ingin kuasai microservices, gRPC, DDD, dan sistem terdistribusi |
+| 🔴 Senior Dev | Butuh referensi lengkap untuk onboarding tim atau review knowledge |
 
 ---
 
 ## 🗺️ Roadmap Belajar
 
 ```
-FONDASI                    FRAMEWORK              ARSITEKTUR
-┌─────────────────┐        ┌──────────────┐       ┌──────────────────┐
-│  FASE 1         │        │  FASE 3      │       │  FASE 4          │
-│  Go Fundamentals│──────▶ │  Gin + REST  │──────▶│  Clean Arch      │
-│  2-3 minggu     │        │  3-4 minggu  │       │  4-5 minggu      │
-└─────────────────┘        └──────────────┘       └────────┬─────────┘
-         │                                                  │
-┌─────────────────┐                                ┌───────▼──────────┐
-│  FASE 2         │                                │  FASE 5          │
-│  Go Intermediate│                                │  gRPC + Protobuf │
-│  3-4 minggu     │                                │  3-4 minggu      │
-└─────────────────┘                                └────────┬─────────┘
-                                                            │
-                                                   ┌────────▼─────────┐
-                                                   │  FASE 6          │
-                                                   │  DDD Pattern     │
-                                                   │  3-4 minggu      │
-                                                   └────────┬─────────┘
+FASE 1 ──► FASE 2 ──► FASE 3 ──► FASE 4 ──► FASE 5 ──► FASE 6
+  Go          Go         Gin        Clean      gRPC +      DDD
+ Dasar      Lanjut     REST API    Arch.     Protobuf    Pattern
+2-3 mgg    3-4 mgg    3-4 mgg    4-5 mgg    3-4 mgg    3-4 mgg
 
-PRODUCTION SYSTEMS
-┌─────────────────┐   ┌──────────────────┐   ┌──────────────────┐
-│  FASE 7         │   │  FASE 8          │   │  FASE 9          │
-│  Microservices  │──▶│  Message Broker  │──▶│  Observability   │
-│  4-6 minggu     │   │  3-4 minggu      │   │  2-3 minggu      │
-└─────────────────┘   └──────────────────┘   └──────────────────┘
+         ↓ Semua fondasi sudah siap ↓
 
-QUALITY & DEPLOYMENT
-┌─────────────────┐   ┌──────────────────┐
-│  FASE 10        │   │  FASE 11         │
-│  Testing Mastery│──▶│  DevOps & Deploy │
-│  2-3 minggu     │   │  2-3 minggu      │
-└─────────────────┘   └──────────────────┘
+FASE 7 ──► FASE 8 ──► FASE 9 ──► FASE 10 ─► FASE 11
+Micro-     Message   Observ-     Testing    DevOps &
+services   Broker    ability     Mastery    Deploy
+4-6 mgg   3-4 mgg   2-3 mgg    2-3 mgg    3-4 mgg
+
+Total estimasi: 35–50 minggu (belajar konsisten ~10 jam/minggu)
 ```
 
 ---
 
-## 📋 Daftar Fase
+## 📋 Daftar Fase Lengkap
 
-| # | Fase | Level | Durasi | Status |
-|---|------|-------|--------|--------|
-| [01](./fase-01-go-fundamentals/) | Go Fundamentals | 🟢 Beginner | 2–3 minggu | ✅ Lengkap |
-| [02](./fase-02-go-intermediate/) | Go Intermediate | 🟡 Beginner-Mid | 3–4 minggu | ✅ Lengkap |
-| [03](./fase-03-gin-rest-api/) | Gin Framework & REST API | 🟡 Intermediate | 3–4 minggu | ✅ Lengkap |
-| [04](./fase-04-clean-architecture/) | Clean Architecture | 🟠 Intermediate | 4–5 minggu | ✅ Lengkap |
-| [05](./fase-05-grpc-protobuf/) | gRPC + Protocol Buffers | 🟠 Intermediate | 3–4 minggu | ✅ Lengkap |
-| [06](./fase-06-ddd/) | Domain-Driven Design (DDD) | 🔴 Advanced | 3–4 minggu | ✅ Lengkap |
-| [07](./fase-07-microservices/) | Microservices Architecture | 🔴 Advanced | 4–6 minggu | 🔄 Coming Soon |
-| [08](./fase-08-message-broker/) | Message Broker & Event-Driven | 🔴 Advanced | 3–4 minggu | 🔄 Coming Soon |
-| [09](./fase-09-observability/) | Observability & Production | 🔴 Advanced | 2–3 minggu | 🔄 Coming Soon |
-| [10](./fase-10-testing-mastery/) | Testing Mastery | 🟠 Intermediate | 2–3 minggu | 🔄 Coming Soon |
-| [11](./fase-11-devops-deployment/) | DevOps & Deployment | 🔴 Advanced | 2–3 minggu | 🔄 Coming Soon |
+| # | Fase | Topik Utama | Level | Durasi | Modul |
+|---|------|-------------|-------|--------|-------|
+| [01](./fase-01-go-fundamentals/) | **Go Fundamentals** | Variables, Functions, Slices, Maps, Structs, Error Handling, Packages | 🟢 Beginner | 2–3 mgg | 13 |
+| [02](./fase-02-go-intermediate/) | **Go Intermediate** | Interfaces, Goroutines, Channels, Context, Generics, Testing | 🟡 Beginner+ | 3–4 mgg | 13 |
+| [03](./fase-03-gin-rest-api/) | **Gin & REST API** | Gin framework, GORM, JWT Auth, Pagination, Validation, Swagger | 🟡 Intermediate | 3–4 mgg | 13 |
+| [04](./fase-04-clean-architecture/) | **Clean Architecture** | SOLID, Layer separation, DI, Repository, Use Case, Graceful Shutdown | 🟠 Intermediate | 4–5 mgg | 12 |
+| [05](./fase-05-grpc-protobuf/) | **gRPC + Protobuf** | Protocol Buffers, 4 RPC types, Interceptors, Streaming, Gateway | 🟠 Intermediate | 3–4 mgg | 13 |
+| [06](./fase-06-ddd/) | **Domain-Driven Design** | Aggregate, Value Object, Domain Events, CQRS, Event Sourcing, ACL | 🔴 Advanced | 3–4 mgg | 12 |
+| [07](./fase-07-microservices/) | **Microservices** | Docker, K8s, API Gateway, Circuit Breaker, Saga, Service Discovery | 🔴 Advanced | 4–6 mgg | 13 |
+| [08](./fase-08-message-broker/) | **Message Broker** | Kafka, RabbitMQ, Consumer Groups, Outbox Pattern, DLQ, Schema | 🔴 Advanced | 3–4 mgg | 13 |
+| [09](./fase-09-observability/) | **Observability** | Zap, Prometheus, Grafana, OpenTelemetry, Jaeger, SLO, Alerting | 🔴 Advanced | 2–3 mgg | 13 |
+| [10](./fase-10-testing-mastery/) | **Testing Mastery** | Unit, Integration, Contract, Load (k6), Fuzz, Mutation, CI/CD | 🟠 Advanced | 2–3 mgg | 13 |
+| [11](./fase-11-devops-deployment/) | **DevOps & Deploy** | GitHub Actions, Helm, ArgoCD, Blue-Green, Vault, Terraform, DR | 🔴 Senior | 3–4 mgg | 13 |
 
-**Total estimasi:** 35–50 minggu untuk menyelesaikan semua fase
+**Total: 11 Fase · 143 Modul · 143 Latihan · 11 Project PRD**
 
 ---
 
-## 🚀 Cara Menggunakan
+## 🚀 Cara Memulai
 
-### 1. Clone Repositori
+### Prerequisites
 
 ```bash
+# 1. Install Go 1.22+
+brew install go                    # macOS
+sudo apt install golang-go         # Ubuntu/Debian
+# atau download dari https://go.dev/dl/
+
+# 2. Verify
+go version                         # go version go1.22.x
+
+# 3. Setup VS Code (recommended)
+code --install-extension golang.go
+
+# 4. Clone repo
 git clone https://github.com/ilramdhan/learn-go-with-claude-mentor.git
 cd learn-go-with-claude-mentor
 ```
 
-### 2. Persiapkan Environment
+### Mulai dari Fase 1
 
-Install tools yang dibutuhkan:
 ```bash
-# Go 1.22+
-# Download dari: https://go.dev/dl/
-
-# VS Code + Extension Go (by Google)
-# Download dari: https://code.visualstudio.com/
-
-# Verifikasi instalasi
-go version
+cd fase-01-go-fundamentals
+cat README.md      # baca overview fase ini
+cat materi/FASE-1-Go-Fundamentals.md   # mulai belajar!
+cat project/FASE-1-PRD-CLI-Todo-Manager.md  # project akhir fase
 ```
 
-### 3. Buka di Obsidian (Direkomendasikan)
-
-Repositori ini dioptimalkan untuk dibuka dengan [Obsidian](https://obsidian.md/) sebagai vault:
-1. Buka Obsidian → "Open folder as vault"
-2. Pilih folder `learn-go-with-claude-mentor`
-3. Nikmati navigasi antar dokumen yang mulus!
-
-Alternatif: buka dengan VS Code biasa.
-
-### 4. Mulai dari Fase 1
-
-Buka [`fase-01-go-fundamentals/README.md`](./fase-01-go-fundamentals/README.md) dan ikuti panduannya.
-
----
-
-## 📂 Struktur Repositori
+### Struktur Setiap Fase
 
 ```
-learn-go-with-claude-mentor/
-│
-├── README.md                          ← Kamu di sini
-├── CONTRIBUTING.md                    ← Cara berkontribusi
-├── LICENSE                            ← MIT License
-├── CODE_OF_CONDUCT.md                 ← Kode etik komunitas
-├── CHANGELOG.md                       ← Riwayat perubahan
-│
-├── fase-01-go-fundamentals/
-│   ├── README.md                      ← Panduan fase
-│   ├── materi/                        ← Materi pembelajaran
-│   │   └── FASE-1-Go-Fundamentals.md  ← 13 modul lengkap
-│   └── project/
-│       └── FASE-1-PRD-CLI-Todo-Manager.md
-│
-├── fase-02-go-intermediate/
-│   ├── README.md
-│   ├── materi/
-│   │   └── FASE-2-Go-Intermediate.md  ← Interface, Goroutines, dll
-│   └── project/
-│       └── FASE-2-PRD-File-Processor.md
-│
-├── fase-03-gin-rest-api/
-│   ├── README.md
-│   ├── materi/
-│   │   └── FASE-3-Gin-REST-API.md
-│   └── project/
-│       └── FASE-3-PRD-Blog-API.md
-│
-├── fase-04-clean-architecture/
-│   ├── README.md
-│   ├── materi/
-│   │   └── FASE-4-Clean-Architecture.md
-│   └── project/
-│       └── FASE-4-PRD-User-Auth-Service.md
-│
-├── fase-05-grpc-protobuf/
-│   ├── README.md
-│   ├── materi/
-│   │   └── FASE-5-gRPC-Protobuf.md
-│   └── project/
-│       └── FASE-5-PRD-Product-Catalog.md
-│
-├── fase-06-ddd/
-│   ├── README.md
-│   ├── materi/
-│   │   └── FASE-6-DDD.md
-│   └── project/
-│       └── FASE-6-PRD-Order-Service.md
-│
-├── fase-07-microservices/             ← Coming Soon
-├── fase-08-message-broker/            ← Coming Soon
-├── fase-09-observability/             ← Coming Soon
-├── fase-10-testing-mastery/           ← Coming Soon
-├── fase-11-devops-deployment/         ← Coming Soon
-│
-└── resources/
-    ├── cheatsheets/                   ← Go cheatsheets
-    ├── tools/                         ← Tools & setup guides
-    └── references/                    ← Referensi tambahan
+fase-XX-nama/
+├── README.md          ← Overview, daftar modul, checklist kelulusan
+├── materi/
+│   └── FASE-X-Nama.md ← Materi lengkap dengan contoh kode
+├── project/
+│   └── FASE-X-PRD-*.md ← Project requirements yang harus dikerjakan
+└── assets/
+    ├── README.md       ← Penjelasan aset visual
+    └── *.md / *.png    ← Diagram, cheatsheet, referensi
 ```
 
 ---
 
-## 🎓 Filosofi Pembelajaran
+## 📚 Resources Tambahan
 
-### Prinsip Utama
+Folder [`resources/`](./resources/) berisi:
 
-1. **Learning by Doing** — setiap fase berakhir dengan project nyata
-2. **Progressive Complexity** — setiap fase membangun di atas yang sebelumnya
-3. **Industry-Aligned** — pola dan arsitektur yang dipakai di perusahaan tech nyata
-4. **No Copy-Paste** — selalu ketik ulang kode untuk muscle memory
-5. **Test Everything** — testing adalah bagian integral, bukan opsional
-
-### Cara Belajar yang Direkomendasikan
-
-```
-Untuk setiap modul:
-1. Baca teori dan pahami konsepnya
-2. Ketik ulang (JANGAN copy-paste) semua contoh kode
-3. Eksperimen — ubah kode, lihat apa yang terjadi
-4. Kerjakan latihan di akhir modul
-5. Commit ke Git setiap hari
-
-Untuk setiap project:
-1. Baca PRD dengan teliti
-2. Buat rencana implementasi dulu (30 menit)
-3. Mulai dari bagian paling dasar
-4. Test setiap komponen sebelum lanjut
-5. Push ke GitHub dengan commit history yang rapi
-```
+| File | Konten |
+|------|--------|
+| [`cheatsheets/go-quick-reference.md`](./resources/cheatsheets/go-quick-reference.md) | Syntax Go yang sering dipakai |
+| [`tools/SETUP_GUIDE.md`](./resources/tools/SETUP_GUIDE.md) | Setup tools: VS Code, Docker, Kubernetes, dll |
+| [`references/LEARNING_RESOURCES.md`](./resources/references/LEARNING_RESOURCES.md) | Buku, video, blog terbaik untuk belajar Go |
+| [`CLAUDE_PROMPTS.md`](./resources/CLAUDE_PROMPTS.md) | Prompt untuk berdiskusi dengan Claude AI |
 
 ---
 
-## 🤖 Dibuat dengan Claude AI
+## 🏗️ Tech Stack yang Dipelajari
 
-Kurikulum ini dibuat menggunakan **[Claude](https://claude.ai) by Anthropic** sebagai AI mentor yang membantu:
-- Merancang struktur kurikulum yang progresif
-- Menulis contoh kode yang idiomatic dan production-ready
-- Membuat PRD yang realistis sesuai standar industri
-- Cross-checking best practices Go terkini
-
-> *"AI bukan pengganti belajar — AI adalah akselerator belajar."*
-
-Meski dibuat dengan bantuan AI, setiap konten telah:
-- Divalidasi terhadap Go official documentation
-- Disesuaikan dengan best practices industri
-- Dirancang untuk pemahaman manusia, bukan output AI
-
-**Ingin membuat kurikulum serupa?** Lihat [CLAUDE_PROMPTS.md](./resources/CLAUDE_PROMPTS.md) untuk melihat bagaimana kurikulum ini dibuat.
-
----
-
-## 🤝 Berkontribusi
-
-Proyek ini **open source** dan menyambut kontribusi dari siapapun! Lihat [CONTRIBUTING.md](CONTRIBUTING.md) untuk panduan lengkap.
-
-Cara termudah untuk berkontribusi:
-- ⭐ **Star** repositori ini jika bermanfaat
-- 🐛 **Laporkan bug** atau kesalahan via [Issues](https://github.com/ilramdhan/learn-go-with-claude-mentor/issues)
-- 📝 **Perbaiki typo** atau klarifikasi penjelasan
-- 💡 **Usulkan topik** baru via [Discussions](https://github.com/ilramdhan/learn-go-with-claude-mentor/discussions)
-- 🌍 **Terjemahkan** ke bahasa lain
+```
+Bahasa:    Go 1.22+
+Web:       Gin, net/http
+Database:  PostgreSQL, Redis, GORM, golang-migrate
+API:       REST, gRPC, Protocol Buffers
+Messaging: Apache Kafka, RabbitMQ
+Container: Docker, Docker Compose
+Orchestration: Kubernetes, Helm, ArgoCD
+Observability: Zap, Prometheus, Grafana, OpenTelemetry, Jaeger, Loki
+Testing:   testify, testcontainers, k6, go-mutesting
+CI/CD:     GitHub Actions, Terraform, Vault
+```
 
 ---
 
 ## 📊 Statistik Kurikulum
 
-| Metrik | Nilai |
-|--------|-------|
-| Total fase | 11 fase |
-| Total modul | 130+ modul |
-| Total baris materi | 15,000+ baris |
-| Project latihan | 11 project dengan PRD |
-| Fase sudah selesai | 6 dari 11 |
-| Bahasa | Indonesia (dengan kode dalam bahasa Inggris) |
+```
+📁 11 Fase
+📦 143 Modul
+🏋️ 143 Latihan (3 per modul)
+🎯 11 Project PRD
+📄 ~27,000 baris materi
+💾 ~800KB konten teks
+⏱️  35–50 minggu belajar
+```
+
+---
+
+## 🤝 Cara Berkontribusi
+
+Kami menyambut kontribusi dari komunitas! Lihat [CONTRIBUTING.md](CONTRIBUTING.md) untuk panduan lengkap.
+
+Beberapa cara berkontribusi:
+- 🐛 **Report bugs** — typo, kode yang salah, link rusak
+- 💡 **Usul konten** — topik yang belum dibahas
+- 🎨 **Tambah aset** — diagram, infografis untuk folder `assets/`
+- 📝 **Perbaiki materi** — penjelasan yang lebih jelas, contoh tambahan
+- 🌍 **Terjemahan** — bantu terjemahkan ke bahasa lain
 
 ---
 
 ## 📜 Lisensi
 
-Proyek ini dilisensikan di bawah **MIT License** — lihat [LICENSE](LICENSE) untuk detail.
-
-Kamu bebas untuk:
-- ✅ Menggunakan untuk belajar pribadi
-- ✅ Berbagi ke orang lain
-- ✅ Modifikasi untuk kebutuhanmu
-- ✅ Menggunakan di kelas/workshop (dengan atribusi)
+Proyek ini dilisensikan di bawah [MIT License](LICENSE) — bebas digunakan untuk keperluan pribadi maupun komersial.
 
 ---
 
 ## 🙏 Acknowledgments
 
-- **[Go Team at Google](https://go.dev)** — untuk bahasa yang luar biasa
-- **[roadmap.sh](https://roadmap.sh/golang)** — sebagai referensi roadmap
-- **[Anthropic](https://anthropic.com)** — untuk Claude AI yang membantu membuat kurikulum ini
-- **Komunitas Gopher Indonesia** — untuk inspirasi dan feedback
-- **Semua kontributor** — yang telah membantu memperbaiki konten
+- [The Go Team](https://go.dev) — atas bahasa pemrograman yang luar biasa
+- [Anthropic](https://anthropic.com) — atas Claude AI yang membantu membuat kurikulum ini
+- Komunitas developer Indonesia yang terus berkembang 🇮🇩
 
 ---
 
 <div align="center">
 
-**⭐ Jika repositori ini bermanfaat, tolong berikan star!**
+**Selamat belajar Go! 🚀**
 
-*Dibuat dengan ❤️ untuk komunitas Go Indonesia dan dunia*
+*"The only way to learn a new programming language is by writing programs in it." — Dennis Ritchie*
+
+⭐ Jika kurikulum ini membantu, berikan star di GitHub!
 
 </div>

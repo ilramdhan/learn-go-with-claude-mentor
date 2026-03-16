@@ -2130,6 +2130,132 @@ func (h *HealthHandler) Ready(c *gin.Context) {
 1. Buat health check endpoint `/health` yang mengembalikan uptime, versi build (dari ldflags), dan memori yang digunakan. Buat readiness endpoint `/ready` yang mengecek koneksi database dan mengembalikan detail per dependency.
 2. Buat `ShutdownManager` yang mengumpulkan semua resource yang perlu di-close (`database`, `redis`, `message broker`) dan menutupnya secara graceful dengan timeout yang bisa dikonfigurasi.
 
+### Graceful Shutdown — Wajib di Clean Architecture
+
+```go
+// cmd/api/main.go — Production-ready startup & shutdown
+package main
+
+import (
+    "context"
+    "fmt"
+    "net/http"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
+    "go.uber.org/zap"
+)
+
+func main() {
+    cfg := config.MustLoad("auth-service")
+    log := logger.MustNew(cfg.Log.Level, cfg.Log.Format, "auth-service", cfg.App.Version)
+    defer log.Sync()
+
+    // Run database migrations at startup
+    if err := database.RunMigrations(db.DB(), "./migrations"); err != nil {
+        log.Fatal("migration failed", zap.Error(err))
+    }
+
+    // Setup HTTP server
+    router := wire.InitHTTPHandler(cfg, db, log)
+    srv := &http.Server{
+        Addr:         fmt.Sprintf(":%d", cfg.App.Port),
+        Handler:      router,
+        ReadTimeout:  15 * time.Second,
+        WriteTimeout: 15 * time.Second,
+        IdleTimeout:  60 * time.Second,
+    }
+
+    // Start server in goroutine
+    serverErr := make(chan error, 1)
+    go func() {
+        log.Info("server starting", zap.String("addr", srv.Addr))
+        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            serverErr <- err
+        }
+    }()
+
+    // Wait for interrupt signal
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+    select {
+    case err := <-serverErr:
+        log.Fatal("server failed to start", zap.Error(err))
+    case sig := <-quit:
+        log.Info("shutdown initiated", zap.String("signal", sig.String()))
+    }
+
+    // Graceful shutdown with timeout
+    ctx, cancel := context.WithTimeout(context.Background(), cfg.App.ShutdownTimeout)
+    defer cancel()
+
+    if err := srv.Shutdown(ctx); err != nil {
+        log.Error("server shutdown error", zap.Error(err))
+    }
+
+    // Close database connections
+    if sqlDB, err := db.DB(); err == nil {
+        sqlDB.Close()
+        log.Info("database connections closed")
+    }
+
+    log.Info("server stopped gracefully")
+}
+```
+
+### Database Migration dengan golang-migrate
+
+```bash
+go get -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate
+```
+
+```
+migrations/
+  000001_create_users_table.up.sql
+  000001_create_users_table.down.sql
+  000002_add_refresh_tokens.up.sql
+  000002_add_refresh_tokens.down.sql
+```
+
+```sql
+-- migrations/000001_create_users_table.up.sql
+CREATE TABLE users (
+    id            BIGSERIAL PRIMARY KEY,
+    name          VARCHAR(100) NOT NULL,
+    email         VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role          VARCHAR(20)  NOT NULL DEFAULT 'user',
+    is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    deleted_at    TIMESTAMPTZ
+);
+CREATE INDEX idx_users_email ON users(email) WHERE deleted_at IS NULL;
+```
+
+```go
+// internal/infrastructure/database/migrate.go
+func RunMigrations(db *sql.DB, migrationsPath string) error {
+    driver, err := postgres.WithInstance(db, &postgres.Config{})
+    if err != nil {
+        return fmt.Errorf("create driver: %w", err)
+    }
+    m, err := migrate.NewWithDatabaseInstance(
+        "file://"+migrationsPath, "postgres", driver,
+    )
+    if err != nil {
+        return fmt.Errorf("init migrator: %w", err)
+    }
+    if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+        return fmt.Errorf("run migrations: %w", err)
+    }
+    return nil
+}
+```
+
+
 ## 🎯 Review & Checkpoint Fase 4
 
 ### Konseptual

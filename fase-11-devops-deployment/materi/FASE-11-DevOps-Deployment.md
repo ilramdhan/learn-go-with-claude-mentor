@@ -1630,6 +1630,94 @@ spec:
           cmd: "curl -sd 'test' http://auth-service-canary.production/health | grep ok"
 ```
 
+### Rolling Update — Konfigurasi yang Benar
+
+```yaml
+# Kubernetes rolling update strategy detail
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1   # max 1 pod boleh tidak available saat update
+      maxSurge: 1         # max 1 pod extra boleh dibuat saat update
+
+# Contoh dengan 5 replicas:
+# Sebelum: [v1][v1][v1][v1][v1]  (5 pods)
+# Step 1:  [v1][v1][v1][v1][v2]  (maxSurge: 1 pod baru dibuat → 6 total)
+# Step 2:  [v1][v1][v1][ X][v2]  (maxUnavailable: 1 pod lama dihapus → 5 total)
+# Step 3:  [v1][v1][v1][v2][v2]
+# ...
+# Final:   [v2][v2][v2][v2][v2]
+
+# Untuk high availability (tidak ada downtime):
+# maxUnavailable: 0  → tidak ada pod yang dihapus sebelum pod baru ready
+# maxSurge: 1        → satu pod extra dibuat dulu
+# Trade-off: butuh lebih banyak resource sementara
+
+# Verify rolling update berjalan:
+kubectl rollout status deployment/auth-service -n production
+# Waiting for deployment "auth-service" rollout to finish:
+# 1 out of 3 new replicas have been updated...
+# 2 out of 3 new replicas have been updated...
+# 3 out of 3 new replicas have been updated...
+# Waiting for 1 old replicas to be terminated...
+# deployment "auth-service" successfully rolled out
+
+# Rollback jika ada masalah:
+kubectl rollout undo deployment/auth-service -n production
+kubectl rollout undo deployment/auth-service --to-revision=2 -n production
+
+# History
+kubectl rollout history deployment/auth-service -n production
+# REVISION  CHANGE-CAUSE
+# 1         Initial deployment v1.0.0
+# 2         Upgrade to v1.1.0
+# 3         Upgrade to v1.2.0
+```
+
+### GitHub Environments — Approval Gate untuk Production
+
+```yaml
+# .github/workflows/ci-cd.yml (tambahan)
+# GitHub Environments memungkinkan required approval sebelum deploy production
+
+deploy-production:
+  runs-on: ubuntu-latest
+  needs: [deploy-staging]
+  # environment = nama di GitHub Settings > Environments
+  # Protection rules bisa dikonfigurasi: required reviewers, wait timer, dll
+  environment:
+    name: production          # ← nama environment di GitHub
+    url: https://myecommerce.com
+  # Dengan protection rules:
+  # - Required reviewers: 1 orang harus approve
+  # - Wait timer: 5 menit cooldown
+  # - Deployment branch: hanya dari main
+  steps:
+    - name: Deploy to production
+      run: |
+        echo "Deploying ${{ github.sha }} to production..."
+        # ... deployment commands
+```
+
+```
+Setup di GitHub UI:
+  Repository → Settings → Environments → New environment → "production"
+  
+  Protection rules:
+  ✅ Required reviewers (tambahkan tim lead / DevOps)
+  ✅ Wait timer: 0-43200 menit (opsional)  
+  ✅ Deployment branches: Selected branches → "main"
+  
+  Environment secrets (berbeda dari repo secrets!):
+  KUBE_CONFIG_PROD=...
+  DATABASE_URL_PROD=...
+  
+Workflow akan PAUSE di job deploy-production dan menunggu approval.
+Reviewer dapat email notifikasi dan bisa approve/reject dari GitHub UI.
+```
+
+
 ### 🏋️ Latihan 11.7
 
 1. Implementasikan **Blue-Green deployment** untuk Auth Service di minikube: deploy blue (v1.0), kemudian deploy green (v1.1), switch traffic ke green, verify, lalu simulasikan rollback ke blue.
